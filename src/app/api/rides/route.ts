@@ -24,10 +24,11 @@ export async function POST(request: NextRequest) {
       .returning();
 
     return NextResponse.json({ ride: newRide }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating ride:", error);
+    // هنا نرسل الخطأ الحقيقي للمتصفح مؤقتاً للتصحيح
     return NextResponse.json(
-      { error: "حدث خطأ أثناء حفظ الطلب" },
+      { error: error.message || "حدث خطأ أثناء حفظ الطلب" },
       { status: 500 }
     );
   }
