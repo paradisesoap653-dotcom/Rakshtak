@@ -10,16 +10,42 @@ function RequestForm() {
 
   const [pickup, setPickup] = useState("");
   const [destination, setDestination] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const isRide = type === "ride";
 
-  const handleSubmit = () => {
-    if (pickup && destination) {
+  const handleSubmit = async () => {
+    if (!pickup || !destination) return;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/rides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serviceType: type,
+          pickupLocation: pickup,
+          destination: destination,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "حدث خطأ");
+      }
+
       router.push(
-        `/searching?type=${type}&pickup=${encodeURIComponent(
+        `/searching?rideId=${data.ride.id}&type=${type}&pickup=${encodeURIComponent(
           pickup
         )}&destination=${encodeURIComponent(destination)}`
       );
+    } catch (err) {
+      setError("حدث خطأ أثناء إرسال الطلب، حاول مرة أخرى");
+      setLoading(false);
     }
   };
 
@@ -67,14 +93,18 @@ function RequestForm() {
             />
           </div>
         </div>
+
+        {error && (
+          <p className="text-red-400 text-sm text-center mt-4">{error}</p>
+        )}
       </div>
 
       <button
         onClick={handleSubmit}
-        disabled={!pickup || !destination}
+        disabled={!pickup || !destination || loading}
         className="w-full max-w-sm mx-auto py-4 rounded-xl bg-orange-500 text-white font-bold text-lg disabled:opacity-40 disabled:bg-gray-700"
       >
-        بحث عن سائق
+        {loading ? "جاري الإرسال..." : "بحث عن سائق"}
       </button>
     </main>
   );
