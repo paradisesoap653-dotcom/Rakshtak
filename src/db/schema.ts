@@ -7,5 +7,6 @@ export const rides = pgTable("rides", {
   destination: text("destination").notNull(),
   status: varchar("status", { length: 20 }).notNull().default("searching"),
   customerPhone: varchar("customer_phone", { length: 20 }),
+  driverId: varchar("driver_id", { length: 20 }),
   createdAt: timestamp("created_at").defaultNow(),
 });
