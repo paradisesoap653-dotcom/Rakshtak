@@ -105,32 +105,32 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 flex items-center justify-center">
-      <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-white/50">
+      <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-white/50">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold text-indigo-600">🚗 ركشتك</h1>
-          <span className="text-sm text-gray-500">👋 {userName}</span>
+          <span className="text-sm font-semibold text-gray-700">👋 {userName}</span> {/* تغيير إلى أغمق */}
         </div>
 
         {status === "idle" || status === "cancelled" ? (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">📍 من (نقطة الانطلاق)</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">📍 من (نقطة الانطلاق)</label> {/* أغمق */}
               <input
                 type="text"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
                 placeholder="مثال: السوق الكبير"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none" /* أغمق */
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">🏁 إلى (الوجهة)</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">🏁 إلى (الوجهة)</label> {/* أغمق */}
               <input
                 type="text"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
                 placeholder="مثال: الجامعة"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none" /* أغمق */
               />
             </div>
             <button
@@ -141,7 +141,7 @@ export default function Home() {
               {loading ? "جاري البحث..." : "🔍 بحث عن سائق"}
             </button>
             {status === "cancelled" && (
-              <p className="text-center text-red-500 font-semibold">❌ تم إلغاء الرحلة</p>
+              <p className="text-center text-red-600 font-bold">❌ تم إلغاء الرحلة</p> /* أغمق */
             )}
           </div>
         ) : (
@@ -150,16 +150,16 @@ export default function Home() {
               <>
                 <div className="flex justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div></div>
                 <p className="text-indigo-600 font-bold text-xl">⏳ جاري البحث عن سائق...</p>
-                <p className="text-gray-500 text-sm">سيتم توصيلك في أقرب وقت</p>
-                <button onClick={cancelRide} className="text-red-500 underline text-sm">إلغاء الطلب</button>
+                <p className="text-gray-600 text-sm">سيتم توصيلك في أقرب وقت</p> {/* أغمق */}
+                <button onClick={cancelRide} className="text-red-600 underline text-sm font-bold">إلغاء الطلب</button> {/* أغمق */}
               </>
             )}
             {status === "accepted" && (
               <>
                 <div className="text-green-500 text-6xl">✅</div>
                 <p className="text-green-700 font-bold text-2xl">تم قبول الرحلة!</p>
-                <p className="text-gray-700 text-lg">{driverName} في طريقه إليك 🚗</p>
-                <div className="bg-gray-100 p-3 rounded-xl text-sm text-gray-600">
+                <p className="text-gray-800 text-lg font-semibold">{driverName} في طريقه إليك 🚗</p> {/* أغمق */}
+                <div className="bg-gray-100 p-3 rounded-xl text-sm text-gray-700 font-semibold"> {/* أغمق */}
                   من: {from} → إلى: {to}
                 </div>
                 <div className="mt-4 rounded-xl overflow-hidden shadow-md border border-gray-200">
@@ -172,24 +172,24 @@ export default function Home() {
                     src={`https://www.openstreetmap.org/export/embed.html?bbox=32.0,15.0,33.0,16.0&layer=mapnik&marker=15.5,32.5`}
                     title="خريطة الرحلة"
                   ></iframe>
-                  <p className="text-xs text-gray-400 p-2 bg-white">📍 {from} → 🏁 {to}</p>
+                  <p className="text-xs text-gray-600 p-2 bg-white">📍 {from} → 🏁 {to}</p> {/* أغمق */}
                 </div>
-                <button onClick={cancelRide} className="mt-2 text-red-500 underline text-sm">إلغاء الرحلة</button>
+                <button onClick={cancelRide} className="mt-2 text-red-600 underline text-sm font-bold">إلغاء الرحلة</button> {/* أغمق */}
               </>
             )}
             {status === "completed" && (
               <>
-                <p className="text-gray-700 text-xl">✅ الرحلة انتهت بنجاح!</p>
+                <p className="text-gray-800 text-xl font-bold">✅ الرحلة انتهت بنجاح!</p> {/* أغمق */}
                 <button onClick={() => { setStatus("idle"); setLastRideId(null); setFrom(""); setTo(""); }} className="bg-indigo-500 text-white px-6 py-2 rounded-xl">طلب رحلة جديدة</button>
               </>
             )}
           </div>
         )}
 
-        <div className="mt-6 text-center text-xs text-gray-400 border-t border-gray-200 pt-4">
-          <a href="/driver" target="_blank" className="underline hover:text-indigo-600">🚗 لوحة السائقين</a>
+        <div className="mt-6 text-center text-xs text-gray-500 border-t border-gray-200 pt-4">
+          <a href="/driver" target="_blank" className="underline hover:text-indigo-600 font-medium">🚗 لوحة السائقين</a>
           <span className="mx-2">|</span>
-          <button onClick={() => { localStorage.clear(); router.push("/login"); }} className="text-red-400 underline">تسجيل خروج</button>
+          <button onClick={() => { localStorage.clear(); router.push("/login"); }} className="text-red-500 underline font-medium">تسجيل خروج</button>
         </div>
       </div>
     </main>
