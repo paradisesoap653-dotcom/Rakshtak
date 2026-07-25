@@ -10,20 +10,26 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  // طلب إرسال الرمز
   const requestCode = async () => {
-    if (!phone) return alert("أدخل رقم الهاتف");
+    if (!phone || phone.trim().length < 8) {
+      return alert("يرجى إدخال رقم هاتف صحيح");
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ action: "send", phone: phone.trim() }),
       });
+
+      const data = await res.json();
+
       if (res.ok) {
+        setCode(""); // تفريغ خانة الرمز
         setStep("code");
-        alert("تم إرسال الرمز (في التجربة: 1234)");
       } else {
-        alert("فشل إرسال الرمز");
+        alert(data.error || "فشل إرسال الرمز");
       }
     } catch (error) {
       alert("حدث خطأ أثناء الاتصال بالخادم");
@@ -32,19 +38,27 @@ export default function LoginPage() {
     }
   };
 
+  // التحقق من الرمز
   const verifyCode = async () => {
     if (!code) return alert("أدخل رمز التحقق");
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/verify", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, code }),
+        body: JSON.stringify({ action: "verify", phone: phone.trim(), code: code.trim() }),
       });
+
+      const data = await res.json();
+
       if (res.ok) {
+        // حفظ بيانات المستخدم مؤقتاً والتحويل للرئيسية
+        if (typeof window !== "undefined") {
+          localStorage.setItem("user", JSON.stringify(data));
+        }
         router.push("/");
       } else {
-        alert("رمز التحقق غير صحيح");
+        alert(data.error || "رمز التحقق غير صحيح");
       }
     } catch (error) {
       alert("حدث خطأ أثناء التحقق");
@@ -55,10 +69,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4" dir="rtl">
-      {/* البطاقة الرئيسية الموحدة */}
       <div className="w-full max-w-md bg-white rounded-3xl shadow-lg p-6 space-y-6 text-center border border-gray-100">
         
-        {/* العلوية / الهيدر */}
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-blue-600 flex items-center justify-center gap-2">
             <span>Rakshtak</span>
@@ -69,7 +81,6 @@ export default function LoginPage() {
         </div>
 
         {step === "phone" ? (
-          /* خطوة إدخال رقم الهاتف */
           <div className="space-y-5">
             <h2 className="text-lg font-bold text-gray-800">تسجيل الدخول برقم هاتفك</h2>
 
@@ -79,8 +90,7 @@ export default function LoginPage() {
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="مثال: +249913009060"
-                autoComplete="tel"
+                placeholder="مثال: 0912345678"
                 className="w-full p-3.5 bg-white border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 text-right font-mono text-base"
               />
             </div>
@@ -94,7 +104,6 @@ export default function LoginPage() {
             </button>
           </div>
         ) : (
-          /* خطوة إدخال رمز التحقق (OTP) */
           <div className="space-y-5">
             <h2 className="text-lg font-bold text-gray-800">أدخل رمز التحقق</h2>
             <p className="text-xs text-gray-500">
@@ -108,7 +117,7 @@ export default function LoginPage() {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="مثال: 1234"
-                autoComplete="one-time-code"
+                maxLength={4}
                 className="w-full p-3.5 bg-white border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 text-center font-mono text-lg tracking-widest"
               />
             </div>
