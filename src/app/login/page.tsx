@@ -54,7 +54,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4 dir-rtl">
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4" dir="rtl">
       {/* البطاقة الرئيسية الموحدة */}
       <div className="w-full max-w-md bg-white rounded-3xl shadow-lg p-6 space-y-6 text-center border border-gray-100">
         
@@ -96,7 +96,9 @@ export default function LoginPage() {
           /* خطوة إدخال رمز التحقق (OTP) */
           <div className="space-y-5">
             <h2 className="text-lg font-bold text-gray-800">أدخل رمز التحقق</h2>
-            <p className="text-xs text-gray-500">تم إرسال الرمز إلى الرقم: {phone}</p>
+            <p className="text-xs text-gray-500">
+              تم إرسال الرمز إلى الرقم: <span className="font-mono font-bold text-gray-700">{phone}</span>
+            </p>
 
             <div className="text-right space-y-2">
               <label className="block text-sm text-gray-600 font-medium">رمز التحقق</label>
