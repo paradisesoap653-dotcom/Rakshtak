@@ -16,7 +16,7 @@ export default function DriverDashboard() {
   const [error, setError] = useState<string | null>(null);
   const prevRidesCount = useRef<number>(0);
 
-  // ===== صوت التنبيه =====
+  // ===== دالة تشغيل الصوت =====
   const playSound = () => {
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -24,28 +24,27 @@ export default function DriverDashboard() {
       const gainNode = audioCtx.createGain();
       oscillator.connect(gainNode);
       gainNode.connect(audioCtx.destination);
-      oscillator.frequency.value = 800;
+      oscillator.frequency.value = 880;
       oscillator.type = "sine";
-      gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
       oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.3);
+      oscillator.stop(audioCtx.currentTime + 0.4);
     } catch (e) {
-      // تجاهل إذا لم يدعم المتصفح
+      // تجاهل إذا كان المتصفح لا يدعم
     }
   };
 
+  // ===== جلب الطلبات من الخادم =====
   const fetchRides = async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/rides?status=searching");
-      if (!res.ok) {
-        throw new Error(`خطأ في الخادم: ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`خطأ في الخادم: ${res.status}`);
       const data = await res.json();
       if (Array.isArray(data)) {
         if (data.length > prevRidesCount.current) {
-          playSound();
+          playSound(); // 🔔 تشغيل الصوت عند وصول طلب جديد
         }
         prevRidesCount.current = data.length;
         setRides(data);
@@ -60,12 +59,14 @@ export default function DriverDashboard() {
     }
   };
 
+  // ===== التحديث التلقائي كل 3 ثواني =====
   useEffect(() => {
     fetchRides();
     const interval = setInterval(fetchRides, 3000);
     return () => clearInterval(interval);
   }, []);
 
+  // ===== قبول الرحلة =====
   const acceptRide = async (id: number) => {
     try {
       await fetch(`/api/rides/${id}`, {
@@ -80,6 +81,7 @@ export default function DriverDashboard() {
     }
   };
 
+  // ===== إلغاء الرحلة =====
   const cancelRide = async (id: number) => {
     if (!confirm("هل تريد إلغاء هذه الرحلة؟")) return;
     try {
@@ -95,12 +97,14 @@ export default function DriverDashboard() {
     }
   };
 
+  // ===== واجهة المستخدم =====
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-slate-800 p-4">
       <div className="max-w-4xl mx-auto">
+        {/* ===== الشريط العلوي مع الأزرار ===== */}
         <div className="flex flex-wrap justify-between items-center mb-6 gap-2">
           <h1 className="text-3xl font-bold text-white">🚗 لوحة السائقين</h1>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <span className="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-bold">
               {rides.length} طلب جديد
             </span>
@@ -110,6 +114,28 @@ export default function DriverDashboard() {
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-full text-sm font-bold transition disabled:opacity-50"
             >
               {loading ? "⏳" : "🔄 تحديث"}
+            </button>
+            {/* ===== زر اختبار الصوت ===== */}
+            <button 
+              onClick={() => {
+                try {
+                  const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                  const oscillator = audioCtx.createOscillator();
+                  const gainNode = audioCtx.createGain();
+                  oscillator.connect(gainNode);
+                  gainNode.connect(audioCtx.destination);
+                  oscillator.frequency.value = 880;
+                  oscillator.type = "sine";
+                  gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                  oscillator.start();
+                  oscillator.stop(audioCtx.currentTime + 0.6);
+                } catch (e) {
+                  alert("🔇 لم نتمكن من تشغيل الصوت، تأكد من رفع مستوى الصوت.");
+                }
+              }}
+              className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-full text-sm font-bold transition"
+            >
+              🔊 اختبار
             </button>
           </div>
         </div>
@@ -121,6 +147,7 @@ export default function DriverDashboard() {
           </div>
         )}
 
+        {/* قائمة الطلبات */}
         {rides.length === 0 && !error ? (
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-12 text-center border border-white/10">
             <p className="text-gray-200 text-xl font-semibold">😴 لا توجد طلبات بحث حالياً</p>
