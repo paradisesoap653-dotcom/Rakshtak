@@ -2,23 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import twilio from "twilio";
 
-// إعداد عميل Twilio
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
 
-const twilioClient = (accountSid && authToken) ? twilio(accountSid, authToken) : null;
-
-// دالة لتوحيد تنسيق رقم الهاتف بالصيغة الدولية (+249)
+// دالة لتوحيد تنسيق رقم الهاتف دائماً للنموذج الدولي (+249)
 function normalizePhone(phone: string): string {
-  let cleaned = phone.replace(/\D/g, ""); // إزالة أي رموز غير أرقام
+  let cleaned = phone.replace(/\D/g, "");
   if (cleaned.startsWith("0")) {
-    cleaned = cleaned.substring(1); // إزالة الصفر في البداية
+    cleaned = cleaned.substring(1);
   }
   if (!cleaned.startsWith("249")) {
-    cleaned = "249" + cleaned; // إضافة المفتاح الدولي للسودان إذا لم يكن موجوداً
+    cleaned = "249" + cleaned;
   }
   return "+" + cleaned;
 }
@@ -32,28 +28,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "رقم الهاتف مطلوب" }, { status: 400 });
     }
 
-    // توحيد صيغة الرقم
     const phone = normalizePhone(rawPhone);
 
     // --- 1. طلب إرسال الرمز ---
     if (action === "send" || (!action && !code)) {
       const verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
 
-      // حفظ الرمز في الذاكرة
+      // حفظ الرمز في الذاكرة بالرقم الموحد
       (global as any).__verificationCodes = (global as any).__verificationCodes || {};
       (global as any).__verificationCodes[phone] = verificationCode;
 
-      // محاولة الإرسال عبر Twilio
-      if (twilioClient && twilioPhone) {
+      console.log(`🔑 Verification code for ${phone} is: ${verificationCode}`);
+
+      // إرسال SMS عبر Twilio API
+      if (accountSid && authToken && twilioPhone) {
         try {
-          await twilioClient.messages.create({
-            body: `رمز التحقق الخاص بك في ركشتك هو: ${verificationCode}`,
-            from: twilioPhone,
-            to: phone,
+          const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+          const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+
+          const params = new URLSearchParams();
+          params.append("To", phone);
+          params.append("From", twilioPhone);
+          params.append("Body", `رمز التحقق الخاص بك في ركشتك هو: ${verificationCode}`);
+
+          await fetch(twilioUrl, {
+            method: "POST",
+            headers: {
+              "Authorization": `Basic ${auth}`,
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: params.toString(),
           });
-          console.log(`📩 تم إرسال SMS بنجاح إلى ${phone}`);
+          console.log(`📩 Sent SMS to ${phone}`);
         } catch (twilioErr: any) {
-          console.error("❌ فشل إرسال SMS عبر Twilio:", twilioErr.message);
+          console.error("❌ Twilio Error:", twilioErr.message);
         }
       }
 
@@ -68,7 +76,7 @@ export async function POST(request: NextRequest) {
 
       const storedCode = (global as any).__verificationCodes?.[phone];
       
-      // قبول الرمز المولّد أو الرمز الثابت "1234" لتسهيل التجربة
+      // قبول الرمز المرسل أو الرمز الاحتياطي 1234
       const isValid = code === "1234" || (storedCode && code === storedCode);
 
       if (!isValid) {
@@ -80,7 +88,7 @@ export async function POST(request: NextRequest) {
         delete (global as any).__verificationCodes[phone];
       }
 
-      // البحث عن المستخدم أو إنشاؤه في الداتابيز
+      // البحث عن المستخدم أو إضافته
       let userList = await db.select().from(users).where(eq(users.phone, phone));
 
       if (userList.length === 0) {
