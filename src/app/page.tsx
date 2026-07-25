@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 interface Ride {
   id: number;
@@ -7,24 +8,30 @@ interface Ride {
   destination: string;
   status: string;
   driverId?: string;
-  driverPhone?: string;
-  customerPhone?: string;
+  customerName?: string;
 }
 
 export default function Home() {
+  const router = useRouter();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<"idle" | "searching" | "accepted" | "completed">("idle");
+  const [status, setStatus] = useState<"idle" | "searching" | "accepted" | "completed" | "cancelled">("idle");
   const [lastRideId, setLastRideId] = useState<number | null>(null);
   const [driverName, setDriverName] = useState("");
-  const [driverPhone, setDriverPhone] = useState("");
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    const name = localStorage.getItem("userName") || "مسافر";
+    setUserName(name);
+    const userId = localStorage.getItem("userId");
+    if (!userId) router.push("/login");
+  }, [router]);
 
   const createRide = async () => {
-    if (!from || !to) {
-      alert("يرجى ملء نقطة الانطلاق والوجهة");
-      return;
-    }
+    if (!from || !to) return alert("يرجى ملء نقطة الانطلاق والوجهة");
+    const userId = localStorage.getItem("userId");
+    if (!userId) return router.push("/login");
 
     setLoading(true);
     setStatus("searching");
@@ -37,9 +44,10 @@ export default function Home() {
           serviceType: "ride",
           pickupLocation: from,
           destination: to,
+          userId: parseInt(userId),
+          customerName: userName,
         }),
       });
-
       const data = await res.json();
       if (res.ok) {
         setLastRideId(data.ride.id);
@@ -55,168 +63,138 @@ export default function Home() {
     }
   };
 
-  const cancelSearch = () => {
-    setStatus("idle");
-    setLastRideId(null);
-    setDriverName("");
-    setDriverPhone("");
+  // ===== إلغاء الرحلة =====
+  const cancelRide = async () => {
+    if (!lastRideId) return;
+    if (!confirm("هل تريد إلغاء الرحلة؟")) return;
+    try {
+      await fetch(`/api/rides/${lastRideId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      setStatus("cancelled");
+      alert("تم إلغاء الرحلة");
+    } catch (error) {
+      alert("فشل الإلغاء");
+    }
   };
 
+  // ===== Polling =====
   useEffect(() => {
-    if (!lastRideId) return;
-
+    if (!lastRideId || status === "cancelled") return;
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/rides/${lastRideId}`);
         const ride: Ride = await res.json();
-
         if (ride.status === "accepted") {
           setStatus("accepted");
           setDriverName(ride.driverId || "السائق");
-          setDriverPhone(ride.driverPhone || "");
           clearInterval(interval);
         } else if (ride.status === "completed") {
           setStatus("completed");
+          clearInterval(interval);
+        } else if (ride.status === "cancelled") {
+          setStatus("cancelled");
           clearInterval(interval);
         }
       } catch (error) {
         console.error("Polling error:", error);
       }
     }, 3000);
-
     return () => clearInterval(interval);
-  }, [lastRideId]);
-
-  useEffect(() => {
-    if (status !== "searching") return;
-
-    const timeout = setTimeout(() => {
-      setStatus("idle");
-      setLastRideId(null);
-      alert("لا يوجد سائق متاح حالياً، حاول مرة أخرى لاحقاً");
-    }, 30000);
-
-    return () => clearTimeout(timeout);
-  }, [status]);
+  }, [lastRideId, status]);
 
   return (
-    <main className="min-h-screen bg-gray-100 p-4 flex items-center justify-center">
-      <div className="bg-white rounded-2xl shadow-lg max-w-md w-full p-6">
-        <h1 className="text-2xl font-bold text-center text-blue-600 mb-6">
-          🚗 ركشتك | Rakshtak
-        </h1>
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 flex items-center justify-center">
+      <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-white/50">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold text-indigo-600">🚗 ركشتك</h1>
+          <span className="text-sm text-gray-500">👋 {userName}</span>
+        </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              من (نقطة الانطلاق)
-            </label>
-            <input
-              type="text"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              placeholder="مثال: السوق الكبير"
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={status === "searching" || status === "accepted"}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              إلى (الوجهة)
-            </label>
-            <input
-              type="text"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              placeholder="مثال: الجامعة"
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={status === "searching" || status === "accepted"}
-            />
-          </div>
-
-          <button
-            onClick={createRide}
-            disabled={loading || status === "searching" || status === "accepted"}
-            className={`w-full py-3 rounded-xl text-white font-semibold text-lg transition ${
-              loading || status === "searching" || status === "accepted"
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700"
-            }`}
-          >
-            {loading ? "جاري البحث..." : "بحث عن سائق"}
-          </button>
-
-          {status === "searching" && (
+        {status === "idle" || status === "cancelled" ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">📍 من (نقطة الانطلاق)</label>
+              <input
+                type="text"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                placeholder="مثال: السوق الكبير"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">🏁 إلى (الوجهة)</label>
+              <input
+                type="text"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                placeholder="مثال: الجامعة"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
             <button
-              onClick={cancelSearch}
-              className="w-full py-2 rounded-xl text-red-600 font-medium border border-red-300 hover:bg-red-50 transition"
+              onClick={createRide}
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-105 transition disabled:opacity-50"
             >
-              إلغاء البحث
+              {loading ? "جاري البحث..." : "🔍 بحث عن سائق"}
             </button>
-          )}
-        </div>
+            {status === "cancelled" && (
+              <p className="text-center text-red-500 font-semibold">❌ تم إلغاء الرحلة</p>
+            )}
+          </div>
+        ) : (
+          <div className="text-center space-y-4 py-4">
+            {status === "searching" && (
+              <>
+                <div className="flex justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div></div>
+                <p className="text-indigo-600 font-bold text-xl">⏳ جاري البحث عن سائق...</p>
+                <p className="text-gray-500 text-sm">سيتم توصيلك في أقرب وقت</p>
+                <button onClick={cancelRide} className="text-red-500 underline text-sm">إلغاء الطلب</button>
+              </>
+            )}
+            {status === "accepted" && (
+              <>
+                <div className="text-green-500 text-6xl">✅</div>
+                <p className="text-green-700 font-bold text-2xl">تم قبول الرحلة!</p>
+                <p className="text-gray-700 text-lg">{driverName} في طريقه إليك 🚗</p>
+                <div className="bg-gray-100 p-3 rounded-xl text-sm text-gray-600">
+                  من: {from} → إلى: {to}
+                </div>
+                {/* ===== الخريطة (الميزة رقم 3) ===== */}
+                <div className="mt-4 rounded-xl overflow-hidden shadow-md border border-gray-200">
+                  <iframe
+                    width="100%"
+                    height="200"
+                    style={{ border: 0 }}
+                    loading="lazy"
+                    allowFullScreen
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=32.0,15.0,33.0,16.0&layer=mapnik&marker=15.5,32.5`}
+                    title="خريطة الرحلة"
+                  ></iframe>
+                  <p className="text-xs text-gray-400 p-2 bg-white">📍 {from} → 🏁 {to}</p>
+                </div>
+                <button onClick={cancelRide} className="mt-2 text-red-500 underline text-sm">إلغاء الرحلة</button>
+              </>
+            )}
+            {status === "completed" && (
+              <>
+                <p className="text-gray-700 text-xl">✅ الرحلة انتهت بنجاح!</p>
+                <button onClick={() => { setStatus("idle"); setLastRideId(null); setFrom(""); setTo(""); }} className="bg-indigo-500 text-white px-6 py-2 rounded-xl">طلب رحلة جديدة</button>
+              </>
+            )}
+          </div>
+        )}
 
-        <div className="mt-6 p-4 bg-gray-50 rounded-xl text-center">
-          {status === "idle" && (
-            <p className="text-gray-500">املأ البيانات واضغط بحث</p>
-          )}
-
-          {status === "searching" && (
-            <div className="space-y-2">
-              <div className="flex justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
-              <p className="text-blue-600 font-medium">⏳ جاري البحث عن سائق...</p>
-              <p className="text-sm text-gray-500">سيتم توصيلك في أقرب وقت</p>
-            </div>
-          )}
-
-          {status === "accepted" && (
-            <div className="space-y-2">
-              <div className="text-green-600 text-4xl">✅</div>
-              <p className="text-green-700 font-bold text-lg">تم قبول الرحلة!</p>
-              <p className="text-gray-700">
-                {driverName} في طريقه إليك 🚗
-              </p>
-              {driverPhone && (
-                <a
-                  href={`tel:${driverPhone}`}
-                  className="inline-block text-blue-600 underline font-medium"
-                >
-                  📞 اتصل بالسائق: {driverPhone}
-                </a>
-              )}
-              <p className="text-sm text-gray-500">من: {from} → إلى: {to}</p>
-            </div>
-          )}
-
-          {status === "completed" && (
-            <div className="space-y-2">
-              <p className="text-gray-700">✅ الرحلة انتهت بنجاح</p>
-              <button
-                onClick={() => {
-                  setStatus("idle");
-                  setLastRideId(null);
-                  setFrom("");
-                  setTo("");
-                  setDriverName("");
-                  setDriverPhone("");
-                }}
-                className="mt-2 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm"
-              >
-                طلب رحلة جديدة
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 text-center text-xs text-gray-400">
-          <a href="/driver" target="_blank" className="underline">
-            🚗 لوحة السائقين (لفتحها في تبويب جديد)
-          </a>
+        <div className="mt-6 text-center text-xs text-gray-400 border-t border-gray-200 pt-4">
+          <a href="/driver" target="_blank" className="underline hover:text-indigo-600">🚗 لوحة السائقين</a>
+          <span className="mx-2">|</span>
+          <button onClick={() => { localStorage.clear(); router.push("/login"); }} className="text-red-400 underline">تسجيل خروج</button>
         </div>
       </div>
     </main>
   );
-}
+                }
