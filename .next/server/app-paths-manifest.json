@@ -1,12 +1,12 @@
 {
-  "/api/admin/stats/route": "app/api/admin/stats/route.js",
+  "/api/auth/login/route": "app/api/auth/login/route.js",
   "/api/rides/[id]/route": "app/api/rides/[id]/route.js",
   "/api/rides/route": "app/api/rides/route.js",
-  "/api/auth/login/route": "app/api/auth/login/route.js",
   "/_not-found/page": "app/_not-found/page.js",
+  "/api/admin/stats/route": "app/api/admin/stats/route.js",
   "/driver/page": "app/driver/page.js",
   "/login/page": "app/login/page.js",
   "/page": "app/page.js",
-  "/request/page": "app/request/page.js",
-  "/searching/page": "app/searching/page.js"
+  "/searching/page": "app/searching/page.js",
+  "/request/page": "app/request/page.js"
 }
