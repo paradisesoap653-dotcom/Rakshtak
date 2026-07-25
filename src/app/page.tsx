@@ -94,7 +94,7 @@ export default function Home() {
       setStatus("idle");
       setLastRideId(null);
       alert("لا يوجد سائق متاح حالياً، حاول مرة أخرى لاحقاً");
-    }, 30000); // 30 ثانية
+    }, 30000);
 
     return () => clearTimeout(timeout);
   }, [status]);
@@ -118,7 +118,7 @@ export default function Home() {
               value={from}
               onChange={(e) => setFrom(e.target.value)}
               placeholder="مثال: السوق الكبير"
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={status === "searching" || status === "accepted"}
             />
           </div>
@@ -133,7 +133,7 @@ export default function Home() {
               value={to}
               onChange={(e) => setTo(e.target.value)}
               placeholder="مثال: الجامعة"
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={status === "searching" || status === "accepted"}
             />
           </div>
