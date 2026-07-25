@@ -79,7 +79,8 @@ export default function LoginPage() {
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="مثال: 0912345678"
+                placeholder="مثال: +249913009060"
+                autoComplete="tel"
                 className="w-full p-3.5 bg-white border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 text-right font-mono text-base"
               />
             </div>
@@ -107,6 +108,7 @@ export default function LoginPage() {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="مثال: 1234"
+                autoComplete="one-time-code"
                 className="w-full p-3.5 bg-white border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 text-center font-mono text-lg tracking-widest"
               />
             </div>
@@ -120,7 +122,10 @@ export default function LoginPage() {
             </button>
 
             <button
-              onClick={() => setStep("phone")}
+              onClick={() => {
+                setCode("");
+                setStep("phone");
+              }}
               className="text-xs text-gray-500 hover:underline pt-2 block mx-auto"
             >
               تغيير رقم الهاتف
