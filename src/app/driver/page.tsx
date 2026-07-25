@@ -12,9 +12,11 @@ interface Ride {
 
 export default function DriverDashboard() {
   const [rides, setRides] = useState<Ride[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const prevRidesCount = useRef<number>(0);
 
-  // ===== صوت التنبيه (الميزة رقم 2) =====
+  // ===== صوت التنبيه =====
   const playSound = () => {
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -28,24 +30,33 @@ export default function DriverDashboard() {
       oscillator.start();
       oscillator.stop(audioCtx.currentTime + 0.3);
     } catch (e) {
-      // إذا لم يدعم المتصفح، نتجاهل
+      // تجاهل إذا لم يدعم المتصفح
     }
   };
 
   const fetchRides = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/rides?status=searching");
+      if (!res.ok) {
+        throw new Error(`خطأ في الخادم: ${res.status}`);
+      }
       const data = await res.json();
       if (Array.isArray(data)) {
-        // إذا زاد عدد الطلبات، شغل الصوت
         if (data.length > prevRidesCount.current) {
           playSound();
         }
         prevRidesCount.current = data.length;
         setRides(data);
+      } else {
+        throw new Error("البيانات غير صحيحة");
       }
-    } catch (error) {
-      console.error("Error fetching rides:", error);
+    } catch (err: any) {
+      setError(err.message || "فشل جلب الطلبات");
+      console.error("Error fetching rides:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -87,16 +98,33 @@ export default function DriverDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-slate-800 p-4">
       <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-wrap justify-between items-center mb-6 gap-2">
           <h1 className="text-3xl font-bold text-white">🚗 لوحة السائقين</h1>
-          <span className="bg-green-500 text-white px-4 py-1 rounded-full text-sm">
-            {rides.length} طلب جديد
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-bold">
+              {rides.length} طلب جديد
+            </span>
+            <button 
+              onClick={fetchRides} 
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-full text-sm font-bold transition disabled:opacity-50"
+            >
+              {loading ? "⏳" : "🔄 تحديث"}
+            </button>
+          </div>
         </div>
 
-        {rides.length === 0 ? (
+        {/* عرض خطأ الجلب إن وجد */}
+        {error && (
+          <div className="bg-red-500/20 border border-red-500 text-red-200 p-3 rounded-xl mb-4 text-center">
+            ⚠️ {error} - اضغط "تحديث" للمحاولة مرة أخرى
+          </div>
+        )}
+
+        {rides.length === 0 && !error ? (
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-12 text-center border border-white/10">
-            <p className="text-gray-300 text-xl">😴 لا توجد طلبات بحث حالياً</p>
+            <p className="text-gray-200 text-xl font-semibold">😴 لا توجد طلبات بحث حالياً</p>
+            <p className="text-gray-400 text-sm mt-2">انتظر حتى يطلب راكب جديد</p>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
@@ -104,11 +132,11 @@ export default function DriverDashboard() {
               <div key={ride.id} className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/10 hover:bg-white/20 transition">
                 <div className="flex justify-between items-start mb-3">
                   <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full"># {ride.id}</span>
-                  <span className="text-yellow-400 text-sm">⏳ بانتظار السائق</span>
+                  <span className="text-yellow-400 text-sm font-bold">⏳ بانتظار السائق</span>
                 </div>
-                <p className="text-white font-semibold text-lg">📍 {ride.pickupLocation}</p>
+                <p className="text-white font-bold text-lg">📍 {ride.pickupLocation}</p>
                 <p className="text-gray-300 text-lg mb-2">🏁 {ride.destination}</p>
-                <p className="text-gray-400 text-sm">👤 {ride.customerName || "مسافر"}</p>
+                <p className="text-gray-300 text-sm">👤 {ride.customerName || "مسافر"}</p>
                 <p className="text-gray-400 text-sm mb-4">📞 {ride.customerPhone || "غير متوفر"}</p>
                 <div className="flex gap-2">
                   <button
@@ -128,8 +156,8 @@ export default function DriverDashboard() {
             ))}
           </div>
         )}
-        <div className="mt-8 text-center text-gray-500 text-sm">
-          <button onClick={() => { localStorage.clear(); window.location.href = "/login"; }} className="text-red-400 underline">تسجيل خروج</button>
+        <div className="mt-8 text-center text-gray-400 text-sm">
+          <button onClick={() => { localStorage.clear(); window.location.href = "/login"; }} className="text-red-400 underline font-bold">تسجيل خروج</button>
         </div>
       </div>
     </div>
