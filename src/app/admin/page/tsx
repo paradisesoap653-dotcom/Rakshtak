@@ -1,0 +1,43 @@
+"use client";
+import { useEffect, useState } from "react";
+
+export default function AdminPage() {
+  const [stats, setStats] = useState({ rides: 0, drivers: 0, avgRating: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch("/api/admin/stats");
+        const data = await res.json();
+        setStats(data);
+      } catch (e) { console.error(e); }
+      setLoading(false);
+    };
+    fetchStats();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white p-8">
+      <h1 className="text-4xl font-bold mb-8">📊 لوحة تحكم المشرف</h1>
+      {loading ? (
+        <p>جاري التحميل...</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-blue-600 p-6 rounded-2xl shadow-xl">
+            <p className="text-3xl font-bold">{stats.rides}</p>
+            <p>🚗 إجمالي الرحلات</p>
+          </div>
+          <div className="bg-green-600 p-6 rounded-2xl shadow-xl">
+            <p className="text-3xl font-bold">{stats.drivers}</p>
+            <p>👤 عدد السائقين</p>
+          </div>
+          <div className="bg-yellow-600 p-6 rounded-2xl shadow-xl">
+            <p className="text-3xl font-bold">{stats.avgRating} ⭐</p>
+            <p>متوسط التقييم</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
