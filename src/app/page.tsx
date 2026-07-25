@@ -54,6 +54,13 @@ export default function Home() {
     }
   };
 
+  // ===== دالة إلغاء البحث والرجوع لحالة idle =====
+  const cancelSearch = () => {
+    setStatus("idle");
+    setLastRideId(null);
+    setDriverName("");
+  };
+
   // ===== Polling: التحديث التلقائي كل 3 ثواني =====
   useEffect(() => {
     if (!lastRideId) return;
@@ -66,7 +73,7 @@ export default function Home() {
         if (ride.status === "accepted") {
           setStatus("accepted");
           setDriverName(ride.driverId || "السائق");
-          clearInterval(interval); // نوقف التحديث لأن الرحلة قُبلت
+          clearInterval(interval);
         } else if (ride.status === "completed") {
           setStatus("completed");
           clearInterval(interval);
@@ -74,10 +81,23 @@ export default function Home() {
       } catch (error) {
         console.error("Polling error:", error);
       }
-    }, 3000); // كل 3 ثواني
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [lastRideId]);
+
+  // ===== مؤقت تلقائي: لو مفيش رد خلال 30 ثانية، رجّع الحالة idle =====
+  useEffect(() => {
+    if (status !== "searching") return;
+
+    const timeout = setTimeout(() => {
+      setStatus("idle");
+      setLastRideId(null);
+      alert("لا يوجد سائق متاح حالياً، حاول مرة أخرى لاحقاً");
+    }, 30000); // 30 ثانية
+
+    return () => clearTimeout(timeout);
+  }, [status]);
 
   // ===== واجهة المستخدم =====
   return (
@@ -130,6 +150,16 @@ export default function Home() {
           >
             {loading ? "جاري البحث..." : "بحث عن سائق"}
           </button>
+
+          {/* زر إلغاء البحث - يظهر فقط أثناء البحث */}
+          {status === "searching" && (
+            <button
+              onClick={cancelSearch}
+              className="w-full py-2 rounded-xl text-red-600 font-medium border border-red-300 hover:bg-red-50 transition"
+            >
+              إلغاء البحث
+            </button>
+          )}
         </div>
 
         {/* ===== منطقة الحالة ===== */}
