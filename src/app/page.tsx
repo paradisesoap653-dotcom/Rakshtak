@@ -127,3 +127,96 @@ export default function Home() {
             </label>
             <input
               type="text"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder="مثال: الجامعة"
+              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={status === "searching" || status === "accepted"}
+            />
+          </div>
+
+          <button
+            onClick={createRide}
+            disabled={loading || status === "searching" || status === "accepted"}
+            className={`w-full py-3 rounded-xl text-white font-semibold text-lg transition ${
+              loading || status === "searching" || status === "accepted"
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
+          >
+            {loading ? "جاري البحث..." : "بحث عن سائق"}
+          </button>
+
+          {status === "searching" && (
+            <button
+              onClick={cancelSearch}
+              className="w-full py-2 rounded-xl text-red-600 font-medium border border-red-300 hover:bg-red-50 transition"
+            >
+              إلغاء البحث
+            </button>
+          )}
+        </div>
+
+        <div className="mt-6 p-4 bg-gray-50 rounded-xl text-center">
+          {status === "idle" && (
+            <p className="text-gray-500">املأ البيانات واضغط بحث</p>
+          )}
+
+          {status === "searching" && (
+            <div className="space-y-2">
+              <div className="flex justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+              <p className="text-blue-600 font-medium">⏳ جاري البحث عن سائق...</p>
+              <p className="text-sm text-gray-500">سيتم توصيلك في أقرب وقت</p>
+            </div>
+          )}
+
+          {status === "accepted" && (
+            <div className="space-y-2">
+              <div className="text-green-600 text-4xl">✅</div>
+              <p className="text-green-700 font-bold text-lg">تم قبول الرحلة!</p>
+              <p className="text-gray-700">
+                {driverName} في طريقه إليك 🚗
+              </p>
+              {driverPhone && (
+                <a
+                  href={`tel:${driverPhone}`}
+                  className="inline-block text-blue-600 underline font-medium"
+                >
+                  📞 اتصل بالسائق: {driverPhone}
+                </a>
+              )}
+              <p className="text-sm text-gray-500">من: {from} → إلى: {to}</p>
+            </div>
+          )}
+
+          {status === "completed" && (
+            <div className="space-y-2">
+              <p className="text-gray-700">✅ الرحلة انتهت بنجاح</p>
+              <button
+                onClick={() => {
+                  setStatus("idle");
+                  setLastRideId(null);
+                  setFrom("");
+                  setTo("");
+                  setDriverName("");
+                  setDriverPhone("");
+                }}
+                className="mt-2 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm"
+              >
+                طلب رحلة جديدة
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 text-center text-xs text-gray-400">
+          <a href="/driver" target="_blank" className="underline">
+            🚗 لوحة السائقين (لفتحها في تبويب جديد)
+          </a>
+        </div>
+      </div>
+    </main>
+  );
+}
