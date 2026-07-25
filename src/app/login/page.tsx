@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -25,96 +26,107 @@ export default function LoginPage() {
         alert("فشل إرسال الرمز");
       }
     } catch (error) {
-      alert("خطأ في الاتصال");
+      alert("حدث خطأ أثناء الاتصال بالخادم");
     } finally {
       setLoading(false);
     }
   };
 
   const verifyCode = async () => {
-    if (!code) return alert("أدخل الرمز");
+    if (!code) return alert("أدخل رمز التحقق");
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "PUT",
+      const res = await fetch("/api/auth/verify", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, code }),
       });
-      const data = await res.json();
       if (res.ok) {
-        localStorage.setItem("userId", data.userId);
-        localStorage.setItem("userName", data.userName);
-        localStorage.setItem("userRole", data.role);
         router.push("/");
       } else {
-        alert(data.error || "الرمز غير صحيح");
+        alert("رمز التحقق غير صحيح");
       }
     } catch (error) {
-      alert("خطأ في الاتصال");
+      alert("حدث خطأ أثناء التحقق");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full">
-        <h1 className="text-3xl font-bold text-center text-blue-700 mb-2">🚗 ركشتك</h1>
-        {/* تم تغيير اللون من text-gray-500 إلى text-gray-800 (أسود غامق) */}
-        <p className="text-center text-gray-800 font-medium mb-6">سجل الدخول برقم هاتفك</p>
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4 dir-rtl">
+      {/* البطاقة الرئيسية الموحدة */}
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-lg p-6 space-y-6 text-center border border-gray-100">
+        
+        {/* العلوية / الهيدر */}
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-blue-600 flex items-center justify-center gap-2">
+            <span>Rakshtak</span>
+            <span>|</span>
+            <span>ركشتك</span>
+            <span className="text-xl">🚗</span>
+          </h1>
+        </div>
 
         {step === "phone" ? (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-800 mb-1">رقم الهاتف</label> {/* أغمق */}
+          /* خطوة إدخال رقم الهاتف */
+          <div className="space-y-5">
+            <h2 className="text-lg font-bold text-gray-800">تسجيل الدخول برقم هاتفك</h2>
+
+            <div className="text-right space-y-2">
+              <label className="block text-sm text-gray-600 font-medium">رقم الهاتف</label>
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="مثال: 0912345678"
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none" /* أغمق */
-                dir="ltr"
+                className="w-full p-3.5 bg-white border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 text-right font-mono text-base"
               />
             </div>
+
             <button
               onClick={requestCode}
               disabled={loading}
-              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition disabled:bg-gray-400"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
             >
               {loading ? "جاري الإرسال..." : "إرسال رمز التحقق"}
             </button>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-800 mb-1">رمز التحقق</label> {/* أغمق */}
+          /* خطوة إدخال رمز التحقق (OTP) */
+          <div className="space-y-5">
+            <h2 className="text-lg font-bold text-gray-800">أدخل رمز التحقق</h2>
+            <p className="text-xs text-gray-500">تم إرسال الرمز إلى الرقم: {phone}</p>
+
+            <div className="text-right space-y-2">
+              <label className="block text-sm text-gray-600 font-medium">رمز التحقق</label>
               <input
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="أدخل الرمز (1234)"
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none" /* أغمق */
-                dir="ltr"
+                placeholder="مثال: 1234"
+                className="w-full p-3.5 bg-white border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 text-center font-mono text-lg tracking-widest"
               />
-              {/* تم تغيير اللون من text-gray-400 إلى text-gray-600 (رمادي غامق) */}
-              <p className="text-xs text-gray-600 mt-1">✨ للتجربة، استخدم الرمز: <strong>1234</strong></p>
             </div>
+
             <button
               onClick={verifyCode}
               disabled={loading}
-              className="w-full bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 transition disabled:bg-gray-400"
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md active:scale-[0.98] disabled:opacity-50"
             >
-              {loading ? "جاري التحقق..." : "تحقق وادخل"}
+              {loading ? "جاري التحقق..." : "تأكيد وتأكيد الدخول"}
             </button>
+
             <button
               onClick={() => setStep("phone")}
-              className="w-full text-sm text-blue-700 underline font-bold" /* أزرق غامق */
+              className="text-xs text-gray-500 hover:underline pt-2 block mx-auto"
             >
               تغيير رقم الهاتف
             </button>
           </div>
         )}
+
       </div>
-    </main>
+    </div>
   );
 }
