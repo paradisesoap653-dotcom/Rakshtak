@@ -63,7 +63,6 @@ export default function Home() {
     }
   };
 
-  // ===== إلغاء الرحلة =====
   const cancelRide = async () => {
     if (!lastRideId) return;
     if (!confirm("هل تريد إلغاء الرحلة؟")) return;
@@ -80,7 +79,6 @@ export default function Home() {
     }
   };
 
-  // ===== Polling =====
   useEffect(() => {
     if (!lastRideId || status === "cancelled") return;
     const interval = setInterval(async () => {
@@ -164,7 +162,6 @@ export default function Home() {
                 <div className="bg-gray-100 p-3 rounded-xl text-sm text-gray-600">
                   من: {from} → إلى: {to}
                 </div>
-                {/* ===== الخريطة (الميزة رقم 3) ===== */}
                 <div className="mt-4 rounded-xl overflow-hidden shadow-md border border-gray-200">
                   <iframe
                     width="100%"
@@ -197,4 +194,4 @@ export default function Home() {
       </div>
     </main>
   );
-                }
+}
