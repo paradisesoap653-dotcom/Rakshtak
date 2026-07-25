@@ -31,7 +31,7 @@ export async function GET(
   }
 }
 
-// ===== قبول الرحلة (يستخدمها السائق) =====
+// ===== قبول الرحلة أو إنهاؤها (يستخدمها السائق) =====
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -40,26 +40,48 @@ export async function PATCH(
     const { id } = await params;
     const rideId = parseInt(id);
     const body = await request.json();
-    const { driverId } = body;
+    const { action, driverId, driverPhone } = body;
 
-    if (!driverId) {
-      return NextResponse.json({ error: "بيانات السائق ناقصة" }, { status: 400 });
+    if (action === "accept") {
+      if (!driverId || !driverPhone) {
+        return NextResponse.json(
+          { error: "بيانات السائق ناقصة" },
+          { status: 400 }
+        );
+      }
+
+      const [updatedRide] = await db
+        .update(rides)
+        .set({
+          status: "accepted",
+          driverId,
+          driverPhone,
+        })
+        .where(eq(rides.id, rideId))
+        .returning();
+
+      if (!updatedRide) {
+        return NextResponse.json({ error: "الرحلة غير موجودة" }, { status: 404 });
+      }
+
+      return NextResponse.json({ ride: updatedRide }, { status: 200 });
     }
 
-    const [updatedRide] = await db
-      .update(rides)
-      .set({
-        status: "accepted",
-        driverId,
-      })
-      .where(eq(rides.id, rideId))
-      .returning();
+    if (action === "complete") {
+      const [updatedRide] = await db
+        .update(rides)
+        .set({ status: "completed" })
+        .where(eq(rides.id, rideId))
+        .returning();
 
-    if (!updatedRide) {
-      return NextResponse.json({ error: "الرحلة غير موجودة" }, { status: 404 });
+      if (!updatedRide) {
+        return NextResponse.json({ error: "الرحلة غير موجودة" }, { status: 404 });
+      }
+
+      return NextResponse.json({ ride: updatedRide }, { status: 200 });
     }
 
-    return NextResponse.json({ ride: updatedRide }, { status: 200 });
+    return NextResponse.json({ error: "إجراء غير معروف" }, { status: 400 });
   } catch (error) {
     console.error("Error updating ride:", error);
     return NextResponse.json(
