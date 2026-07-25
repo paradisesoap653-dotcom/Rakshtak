@@ -1,7 +1,11 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
+  "/api/auth/login/route": "app/api/auth/login/route.js",
+  "/api/rides/[id]/route": "app/api/rides/[id]/route.js",
   "/api/rides/route": "app/api/rides/route.js",
-  "/page": "app/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/login/page": "app/login/page.js",
   "/request/page": "app/request/page.js",
-  "/searching/page": "app/searching/page.js"
+  "/page": "app/page.js",
+  "/searching/page": "app/searching/page.js",
+  "/driver/page": "app/driver/page.js"
 }
