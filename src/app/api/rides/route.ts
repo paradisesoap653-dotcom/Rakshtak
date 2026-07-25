@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { rides } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,6 +30,25 @@ export async function POST(request: NextRequest) {
     console.error("Error creating ride:", error);
     return NextResponse.json(
       { error: "حدث خطأ أثناء حفظ الطلب، حاول مرة أخرى" },
+      { status: 500 }
+    );
+  }
+}
+
+// ===== جلب الرحلات المستنية سائق (للوحة السائقين) =====
+export async function GET() {
+  try {
+    const pendingRides = await db
+      .select()
+      .from(rides)
+      .where(eq(rides.status, "searching"))
+      .orderBy(desc(rides.createdAt));
+
+    return NextResponse.json({ rides: pendingRides }, { status: 200 });
+  } catch (error) {
+    console.error("Error fetching rides:", error);
+    return NextResponse.json(
+      { error: "حدث خطأ أثناء جلب الرحلات" },
       { status: 500 }
     );
   }
