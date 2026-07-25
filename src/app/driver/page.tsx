@@ -21,7 +21,6 @@ export default function DriverPage() {
   const [activeRide, setActiveRide] = useState<Ride | null>(null);
   const [completing, setCompleting] = useState(false);
 
-  // ===== جلب الرحلات كل 4 ثواني =====
   const fetchRides = async () => {
     try {
       const res = await fetch("/api/rides");
@@ -41,7 +40,6 @@ export default function DriverPage() {
     return () => clearInterval(interval);
   }, [nameEntered, activeRide]);
 
-  // ===== قبول رحلة =====
   const acceptRide = async (ride: Ride) => {
     setAcceptingId(ride.id);
     try {
@@ -69,7 +67,6 @@ export default function DriverPage() {
     }
   };
 
-  // ===== إنهاء الرحلة الحالية =====
   const completeRide = async () => {
     if (!activeRide) return;
     setCompleting(true);
@@ -92,13 +89,12 @@ export default function DriverPage() {
     }
   };
 
-  // ===== شاشة إدخال بيانات السائق =====
   if (!nameEntered) {
     return (
       <main className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-lg max-w-sm w-full p-6 text-center">
           <h1 className="text-xl font-bold text-blue-600 mb-4">
-            🚗 لوحة السائقين
+            لوحة السائقين
           </h1>
           <input
             type="text"
@@ -127,9 +123,97 @@ export default function DriverPage() {
     );
   }
 
-  // ===== شاشة الرحلة النشطة (بعد القبول) =====
   if (activeRide) {
     return (
       <main className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-lg max-w-sm w-full p-6 text-center">
-          <div className="text-4xl mb-3">🚗</div
+          <div className="text-4xl mb-3">جارية</div>
+          <h1 className="text-xl font-bold text-green-600 mb-4">
+            رحلة جارية
+          </h1>
+          <div className="bg-gray-50 rounded-xl p-4 text-right mb-6">
+            <div className="flex justify-between mb-2">
+              <span className="text-gray-500 text-sm">من</span>
+              <span className="font-semibold text-gray-900">
+                {activeRide.pickupLocation}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500 text-sm">إلى</span>
+              <span className="font-semibold text-gray-900">
+                {activeRide.destination}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={completeRide}
+            disabled={completing}
+            className={`w-full py-3 rounded-xl text-white font-semibold ${
+              completing ? "bg-gray-400" : "bg-green-600 hover:bg-green-700"
+            }`}
+          >
+            {completing ? "جاري الإنهاء..." : "إنهاء الرحلة"}
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-gray-900 p-4">
+      <div className="max-w-md mx-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-xl font-bold text-white">
+            مرحباً {driverName}
+          </h1>
+          <button
+            onClick={fetchRides}
+            className="text-blue-400 text-sm underline"
+          >
+            تحديث
+          </button>
+        </div>
+
+        {loading && (
+          <p className="text-gray-400 text-center">جاري التحميل...</p>
+        )}
+
+        {!loading && rides.length === 0 && (
+          <div className="bg-gray-800 rounded-xl p-6 text-center">
+            <p className="text-gray-400">لا توجد طلبات حالياً</p>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {rides.map((ride) => (
+            <div key={ride.id} className="bg-white rounded-xl p-4 shadow-md">
+              <div className="flex justify-between mb-2">
+                <span className="text-gray-500 text-sm">من</span>
+                <span className="font-semibold text-gray-900">
+                  {ride.pickupLocation}
+                </span>
+              </div>
+              <div className="flex justify-between mb-3">
+                <span className="text-gray-500 text-sm">إلى</span>
+                <span className="font-semibold text-gray-900">
+                  {ride.destination}
+                </span>
+              </div>
+              <button
+                onClick={() => acceptRide(ride)}
+                disabled={acceptingId === ride.id}
+                className={`w-full py-2 rounded-lg text-white font-semibold ${
+                  acceptingId === ride.id
+                    ? "bg-gray-400"
+                    : "bg-green-600 hover:bg-green-700"
+                }`}
+              >
+                {acceptingId === ride.id ? "جاري القبول..." : "قبول الرحلة"}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </main>
+  );
+        }
