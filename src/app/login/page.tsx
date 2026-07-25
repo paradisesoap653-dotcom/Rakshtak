@@ -59,19 +59,20 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full">
-        <h1 className="text-3xl font-bold text-center text-indigo-600 mb-2">🚗 ركشتك</h1>
-        <p className="text-center text-gray-500 mb-6">سجل الدخول برقم هاتفك</p>
+        <h1 className="text-3xl font-bold text-center text-blue-700 mb-2">🚗 ركشتك</h1>
+        {/* تم تغيير اللون من text-gray-500 إلى text-gray-800 (أسود غامق) */}
+        <p className="text-center text-gray-800 font-medium mb-6">سجل الدخول برقم هاتفك</p>
 
         {step === "phone" ? (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">رقم الهاتف</label>
+              <label className="block text-sm font-bold text-gray-800 mb-1">رقم الهاتف</label> {/* أغمق */}
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="مثال: 0912345678"
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none" /* أغمق */
                 dir="ltr"
               />
             </div>
@@ -86,16 +87,17 @@ export default function LoginPage() {
         ) : (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">رمز التحقق</label>
+              <label className="block text-sm font-bold text-gray-800 mb-1">رمز التحقق</label> {/* أغمق */}
               <input
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="أدخل الرمز (1234)"
-                className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-indigo-500 outline-none" /* أغمق */
                 dir="ltr"
               />
-              <p className="text-xs text-gray-400 mt-1">✨ للتجربة، استخدم الرمز: <strong>1234</strong></p>
+              {/* تم تغيير اللون من text-gray-400 إلى text-gray-600 (رمادي غامق) */}
+              <p className="text-xs text-gray-600 mt-1">✨ للتجربة، استخدم الرمز: <strong>1234</strong></p>
             </div>
             <button
               onClick={verifyCode}
@@ -106,7 +108,7 @@ export default function LoginPage() {
             </button>
             <button
               onClick={() => setStep("phone")}
-              className="w-full text-sm text-indigo-500 underline"
+              className="w-full text-sm text-blue-700 underline font-bold" /* أزرق غامق */
             >
               تغيير رقم الهاتف
             </button>
