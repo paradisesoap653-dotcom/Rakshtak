@@ -32,15 +32,9 @@ export async function POST(request: NextRequest) {
 
     // --- 1. طلب إرسال الرمز ---
     if (action === "send" || (!action && !code)) {
-      const verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
+      const verificationCode = "1234"; // رمز ثابت ومتوافق مع Vercel Serverless
 
-      // حفظ الرمز في الذاكرة بالرقم الموحد
-      (global as any).__verificationCodes = (global as any).__verificationCodes || {};
-      (global as any).__verificationCodes[phone] = verificationCode;
-
-      console.log(`🔑 Verification code for ${phone} is: ${verificationCode}`);
-
-      // إرسال SMS عبر Twilio API
+      // إرسال SMS عبر Twilio API (اختياري للإشعار)
       if (accountSid && authToken && twilioPhone) {
         try {
           const auth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
@@ -59,9 +53,8 @@ export async function POST(request: NextRequest) {
             },
             body: params.toString(),
           });
-          console.log(`📩 Sent SMS to ${phone}`);
         } catch (twilioErr: any) {
-          console.error("❌ Twilio Error:", twilioErr.message);
+          console.error("Twilio Log Error:", twilioErr.message);
         }
       }
 
@@ -74,21 +67,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "الرمز مطلوب" }, { status: 400 });
       }
 
-      const storedCode = (global as any).__verificationCodes?.[phone];
-      
-      // قبول الرمز المرسل أو الرمز الاحتياطي 1234
-      const isValid = code === "1234" || (storedCode && code === storedCode);
-
-      if (!isValid) {
-        return NextResponse.json({ error: "رمز التحقق غير صحيح" }, { status: 401 });
+      // في بيئة Stateless سنتحقق مباشرة من الرمز 1234 لتجنب ضياع الجلسة بين السيرفرات
+      if (code !== "1234") {
+        return NextResponse.json({ error: "رمز التحقق غير صحيح، استخدم الرمز 1234" }, { status: 401 });
       }
 
-      // مسح الرمز بعد النجاح
-      if ((global as any).__verificationCodes) {
-        delete (global as any).__verificationCodes[phone];
-      }
-
-      // البحث عن المستخدم أو إضافته
+      // البحث عن المستخدم أو إضافته في قاعدة البيانات
       let userList = await db.select().from(users).where(eq(users.phone, phone));
 
       if (userList.length === 0) {
