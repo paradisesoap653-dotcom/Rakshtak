@@ -9,28 +9,18 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.4",
-    "drizzle-orm": "^0.36.4",
-    "leaflet": "^1.9.4",
-    "next": "15.5.21",
-    "pg": "^8.13.0",
-    "pusher": "^5.2.0",
-    "pusher-js": "^8.4.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-leaflet": "^4.2.1",
-    "twilio": "^6.0.2"
+    "@supabase/supabase-js": "^2.39.0",
+    "lucide-react": "^0.263.1",
+    "next": "14.2.3",
+    "react": "^18",
+    "react-dom": "^18"
   },
   "devDependencies": {
-    "@types/node": "^20.17.0",
-    "@types/react": "^18.3.18",
-    "@types/react-dom": "^18.3.5",
-    "autoprefixer": "^10.5.4",
-    "drizzle-kit": "^0.30.1",
-    "eslint": "^8.57.1",
-    "eslint-config-next": "15.5.21",
-    "postcss": "^8.5.0",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.3"
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
   }
 }
