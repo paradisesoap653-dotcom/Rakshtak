@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
         serviceType,
         pickupLocation,
         destination,
-        status: "searching", // تمت إضافة الحالة لتتوافق مع استعلام GET
+        status: "searching", // الحالة الموحدة لبدء البحث
       })
       .returning();
 
@@ -36,13 +36,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ===== جلب الرحلات المستنية سائق (للوحة السائقين) =====
+// ===== جلب الرحلات التي تنتظر سائق (للوحة السائقين) =====
 export async function GET() {
   try {
     const pendingRides = await db
       .select()
       .from(rides)
-      .where(eq(rides.status, "searching"))
+      .where(eq(rides.status, "searching")) // تبحث عن نفس الحالة بدقة
       .orderBy(desc(rides.createdAt));
 
     return NextResponse.json({ rides: pendingRides }, { status: 200 });
