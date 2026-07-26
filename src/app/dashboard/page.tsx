@@ -1,13 +1,14 @@
-"use "use client";
+"use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-export default function HomePage() {
+export default function RiderDashboardPage() {
+  const router = useRouter();
   const [selectedVehicle, setSelectedVehicle] = useState("raksha");
   const [isBooking, setIsBooking] = useState(false);
   const [rideStatus, setRideStatus] = useState<"searching" | "accepted" | "arrived">("searching");
 
-  // محاكاة تغيير حالة الرحلة تلقائياً بعد تأكيد الطلب
   useEffect(() => {
     if (isBooking) {
       const timer1 = setTimeout(() => setRideStatus("accepted"), 3000);
@@ -31,7 +32,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#121212] text-white flex flex-col justify-between p-4 dir-rtl font-sans">
-      {/* 1. الترويسة العلوية */}
+      {/* الترويسة العلوية */}
       <div className="flex justify-between items-center bg-[#1E1E1E] p-3 rounded-2xl border border-gray-800">
         <div className="flex items-center gap-2">
           <div className="bg-amber-500 text-black p-2 rounded-xl font-bold">🛺</div>
@@ -42,11 +43,10 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 2. المحتوى المتغير (إما خيارات المركبة أو شاشة التتبع) */}
+      {/* المحتوى المتغير */}
       {!isBooking ? (
-        /* --- واجهة اختيار المركبة والطلب --- */
         <div className="space-y-4 my-auto">
-          {/* عناوين المواقع */}
+          {/* حقول المواقع */}
           <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-gray-800 space-y-3">
             <div className="flex items-center gap-3">
               <span className="text-green-500 text-xl">📍</span>
@@ -69,7 +69,7 @@ export default function HomePage() {
 
           <p className="text-xs text-gray-400 px-1">اختر نوع المركبة:</p>
 
-          {/* قائمة المركبات */}
+          {/* خيارات المركبات */}
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => setSelectedVehicle("raksha")}
@@ -111,7 +111,6 @@ export default function HomePage() {
             </button>
           </div>
 
-          {/* زر التأكيد */}
           <button
             onClick={handleStartBooking}
             className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold py-4 rounded-2xl transition-colors text-base shadow-lg shadow-amber-500/10"
@@ -120,7 +119,7 @@ export default function HomePage() {
           </button>
         </div>
       ) : (
-        /* --- واجهة تتبع الرحلة والسائق --- */
+        /* شاشة تتبع الطلب */
         <div className="space-y-4 my-auto">
           <div className="bg-[#1E1E1E] p-6 rounded-2xl border border-amber-500/30 text-center space-y-3">
             <div className="text-4xl animate-bounce">
@@ -167,7 +166,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 3. شريط التنقل السفلي */}
+      {/* الشريط السفلي */}
       <div className="flex justify-around bg-[#1E1E1E] p-3 rounded-2xl border border-gray-800 text-gray-400 text-xs">
         <button className="flex flex-col items-center text-amber-400 gap-1">
           <span className="text-lg">🏠</span>
