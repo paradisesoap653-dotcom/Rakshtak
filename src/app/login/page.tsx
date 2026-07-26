@@ -11,7 +11,9 @@ export default function LoginPage() {
   const router = useRouter();
 
   // 1. طلب إرسال الرمز
-  const requestCode = async () => {
+  const requestCode = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
     if (!phone || phone.trim().length < 8) {
       return alert("يرجى إدخال رقم هاتف صحيح");
     }
@@ -19,25 +21,22 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const fullPhone = phone.startsWith("+249") ? phone : `+249${phone}`;
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "send", phone }),
+        body: JSON.stringify({ action: "send", phone: fullPhone }),
       });
 
-      const data = await res.json();
-
       if (res.ok) {
-        setCode(""); // تفريغ خانة الرمز
+        setCode("");
         setStep("code");
       } else {
-        // حتى لو فشل الإرسال الحقيقي عبر Twilio، ننتقل لصفحة الرمز لنسمح بالرمز التجريبي 1234
         console.warn("فشل الإرسال الحقيقي، الانتقال للتجربة بالرمز 1234");
         setCode("");
         setStep("code");
       }
     } catch (error) {
-      // التجاوز في حالة وجود أي خطأ في الاتصال
       setCode("");
       setStep("code");
     } finally {
@@ -53,19 +52,19 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    // 💡 شرط التجاوز التجريبي: قبول الرمز 1234 مباشرة دون الحاجة للـ API
+    // 💡 شرط التجاوز التجريبي: قبول الرمز 1234 مباشرة
     if (code === "1234") {
       setLoading(false);
-      router.push("/dashboard"); // التوجيه إلى الشاشة الرئيسية أو اللوحة
+      router.push("/dashboard");
       return;
     }
 
-    // المنطق العادي للتحقق عبر الـ API
     try {
+      const fullPhone = phone.startsWith("+249") ? phone : `+249${phone}`;
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "verify", phone, code }),
+        body: JSON.stringify({ action: "verify", phone: fullPhone, code }),
       });
 
       const data = await res.json();
@@ -83,60 +82,108 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50 dir-rtl">
-      <div className="w-full max-w-md p-6 bg-white rounded-2xl shadow-sm border border-gray-100 text-center">
-        <h1 className="text-2xl font-bold text-blue-600 mb-6">🚗 | Rakshtak | ركشتك</h1>
+    <div className="min-h-screen bg-[#121212] text-white flex flex-col justify-between p-6 dir-rtl font-sans select-none">
+      
+      {/* الترويسة */}
+      <div className="pt-8 flex flex-col items-start">
+        <h1 className="text-2xl font-bold text-gray-100">
+          {step === "phone" ? "أدخل رقم هاتفك للبدء" : "أدخل رمز التحقق"}
+        </h1>
+      </div>
 
+      {/* المحتوى الرئيسي */}
+      <div className="my-auto w-full max-w-md mx-auto space-y-6">
         {step === "phone" ? (
-          /* شاشة إدخال رقم الهاتف */
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-800">أدخل رقم الهاتف</h2>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="مثال: 249114537190+"
-              className="w-full p-3 border border-gray-300 rounded-lg text-center dir-ltr focus:outline-none focus:border-blue-500"
-            />
+          /* شاشة رقم الهاتف (استايل ترحال الداكن) */
+          <form onSubmit={requestCode} className="space-y-6">
+            <div className="flex flex-col space-y-2">
+              <label className="text-xs text-[#EE6C20] text-right font-semibold">
+                رقم الهاتف
+              </label>
+
+              <div className="flex items-center space-x-3 space-x-reverse border-b border-[#EE6C20] pb-2">
+                {/* العلم والمفتاح */}
+                <div className="flex items-center bg-[#1E1E1E] px-3 py-2 rounded-xl border border-neutral-800 space-x-2 space-x-reverse">
+                  <svg
+                    className="w-6 h-4 rounded-sm object-cover"
+                    viewBox="0 0 600 300"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <rect width="600" height="100" fill="#000000" />
+                    <rect y="100" width="600" height="100" fill="#ffffff" />
+                    <rect y="200" width="600" height="100" fill="#009A00" />
+                    <polygon points="0,0 200,150 0,300" fill="#D21034" />
+                  </svg>
+                  <span className="text-white font-bold dir-ltr text-sm">+249</span>
+                </div>
+
+                {/* ادخال الرقم */}
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="9114537190"
+                  className="w-full bg-transparent text-white text-lg focus:outline-none placeholder-neutral-600 dir-ltr text-right font-mono"
+                  required
+                />
+              </div>
+            </div>
+
             <button
-              onClick={requestCode}
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors disabled:opacity-50"
+              type="submit"
+              disabled={loading || !phone}
+              className={`w-full py-3.5 rounded-2xl font-bold text-base transition-all duration-200 ${
+                phone && !loading
+                  ? "bg-[#EE6C20] text-white hover:bg-[#d85e19] shadow-lg shadow-orange-500/20"
+                  : "bg-neutral-800 text-neutral-500 cursor-not-allowed"
+              }`}
             >
               {loading ? "جاري الإرسال..." : "إرسال رمز التحقق"}
             </button>
-          </div>
+          </form>
         ) : (
-          /* شاشة إدخال رمز التحقق */
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-800">أدخل رمز التحقق</h2>
-            <p className="text-xs text-gray-500 dir-ltr">تم إرسال الرمز إلى الرقم: {phone}</p>
+          /* شاشة رمز التحقق */
+          <div className="space-y-6">
+            <div className="text-right space-y-1">
+              <p className="text-xs text-neutral-400">تم إرسال الرمز إلى:</p>
+              <p className="text-sm font-bold text-[#EE6C20] font-mono dir-ltr text-right">
+                {phone.startsWith("+249") ? phone : `+249${phone}`}
+              </p>
+            </div>
 
             <input
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="مثال: 1234"
+              placeholder="1234"
               maxLength={4}
-              className="w-full p-3 border border-gray-300 rounded-lg text-center text-xl tracking-widest focus:outline-none focus:border-green-500"
+              className="w-full bg-[#1E1E1E] border border-neutral-800 rounded-2xl py-4 text-center text-2xl font-mono text-white tracking-widest focus:outline-none focus:border-[#EE6C20]"
             />
 
             <button
               onClick={verifyCode}
-              disabled={loading}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors disabled:opacity-50"
+              disabled={loading || code.length !== 4}
+              className={`w-full py-3.5 rounded-2xl font-bold text-base transition-all duration-200 ${
+                code.length === 4 && !loading
+                  ? "bg-[#EE6C20] text-white hover:bg-[#d85e19] shadow-lg shadow-orange-500/20"
+                  : "bg-neutral-800 text-neutral-500 cursor-not-allowed"
+              }`}
             >
-              {loading ? "جاري التأكيد..." : "تأكيد وتأكيد الدخول"}
+              {loading ? "جاري التأكيد..." : "تأكيد وتأكيد الدخول 🚀"}
             </button>
 
             <button
               onClick={() => setStep("phone")}
-              className="text-sm text-gray-500 underline block mx-auto mt-2 hover:text-gray-700"
+              className="text-xs text-neutral-400 underline block mx-auto hover:text-white"
             >
               تغيير رقم الهاتف
             </button>
           </div>
         )}
+      </div>
+
+      <div className="pb-4 text-center text-xs text-neutral-600">
+        🛺 Rakshtak | ركشتك
       </div>
     </div>
   );
