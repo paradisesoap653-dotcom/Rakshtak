@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { supabase } from "@/lib/supabaseClient";
 
 // استدعاء مكون الخريطة ديناميكياً لتفادي أخطاء العرض في السيرفر (SSR)
 const Map = dynamic(() => import("@/components/Map"), {
@@ -14,7 +15,6 @@ const Map = dynamic(() => import("@/components/Map"), {
 });
 
 export default function DashboardPage() {
-  // إدارة التنقل: main_map -> booking -> edit_location
   const [step, setStep] = useState<"main_map" | "booking" | "edit_location">("main_map");
 
   // بيانات المستخدم والموقع
@@ -30,25 +30,119 @@ export default function DashboardPage() {
 
   // حالات رحلة الراكب
   const [isBooking, setIsBooking] = useState(false);
+  const [currentRideId, setCurrentRideId] = useState<string | null>(null);
   const [rideStatus, setRideStatus] = useState<"searching" | "accepted" | "arrived" | "in_trip" | "completed">("searching");
   const [rating, setRating] = useState(5);
 
   // حالات رحلة السائق
   const [isOnline, setIsOnline] = useState(true);
-  const [hasIncomingRequest, setHasIncomingRequest] = useState(true);
+  const [incomingRides, setIncomingRides] = useState<any[]>([]);
+  const [activeDriverRide, setActiveDriverRide] = useState<any | null>(null);
   const [driverTripState, setDriverTripState] = useState<"idle" | "heading_to_client" | "on_trip" | "finished">("idle");
 
-  // محاكاة تغير حالة رحلة الراكب
-  useEffect(() => {
-    if (isBooking && rideStatus === "searching") {
-      const timer1 = setTimeout(() => setRideStatus("accepted"), 3000);
-      const timer2 = setTimeout(() => setRideStatus("arrived"), 7000);
-      return () => {
-        clearTimeout(timer1);
-        clearTimeout(timer2);
-      };
+  // ================= 1. الربط مع Supabase للراكب =================
+  const handleCreateRide = async () => {
+    setIsBooking(true);
+    setRideStatus("searching");
+
+    const { data, error } = await supabase
+      .from("rides")
+      .insert([
+        {
+          passenger_name: userName,
+          passenger_phone: "0912345678",
+          pickup_location: "ود إلياس / عطبرة",
+          destination: "السوق الكبير",
+          price: selectedVehicle === "raksha" ? 1500 : selectedVehicle === "tuk_tuk" ? 2500 : 3500,
+          status: "pending",
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("خطأ في إنشاء الطلب:", error.message);
+    } else if (data) {
+      setCurrentRideId(data.id);
     }
-  }, [isBooking, rideStatus]);
+  };
+
+  // الاستماع لتحديث حالة طلب الراكب الحالي
+  useEffect(() => {
+    if (!currentRideId) return;
+
+    const channel = supabase
+      .channel(`ride_${currentRideId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "rides", filter: `id=eq.${currentRideId}` },
+        (payload) => {
+          const newStatus = payload.new.status;
+          if (newStatus === "accepted") setRideStatus("accepted");
+          if (newStatus === "arrived") setRideStatus("arrived");
+          if (newStatus === "in_trip") setRideStatus("in_trip");
+          if (newStatus === "completed") setRideStatus("completed");
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentRideId]);
+
+  // ================= 2. الربط مع Supabase للسائق (Realtime) =================
+  useEffect(() => {
+    if (userRole !== "driver" || !isOnline) return;
+
+    // جلب الطلبات المعلقة
+    const fetchPendingRides = async () => {
+      const { data } = await supabase.from("rides").select("*").eq("status", "pending").order("created_at", { ascending: false });
+      if (data) setIncomingRides(data);
+    };
+
+    fetchPendingRides();
+
+    // الاستماع الفوري للطلبات الجديدة
+    const channel = supabase
+      .channel("driver_realtime_rides")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "rides" },
+        (payload) => {
+          if (payload.new.status === "pending") {
+            setIncomingRides((prev) => [payload.new, ...prev]);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userRole, isOnline]);
+
+  // قبول السائق للطلب
+  const handleAcceptRide = async (ride: any) => {
+    const { error } = await supabase.from("rides").update({ status: "accepted" }).eq("id", ride.id);
+
+    if (!error) {
+      setActiveDriverRide(ride);
+      setIncomingRides((prev) => prev.filter((r) => r.id !== ride.id));
+      setDriverTripState("heading_to_client");
+    }
+  };
+
+  // تحديث حالة رحلة السائق
+  const updateDriverRideStatus = async (newStatus: string, nextTripState: any) => {
+    if (!activeDriverRide) return;
+
+    const { error } = await supabase.from("rides").update({ status: newStatus }).eq("id", activeDriverRide.id);
+
+    if (!error) {
+      setDriverTripState(nextTripState);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#121212] text-white flex flex-col justify-between p-4 dir-rtl font-sans select-none">
@@ -56,7 +150,6 @@ export default function DashboardPage() {
       {/* 1. الشاشة الرئيسية مع الخريطة التفاعلية */}
       {step === "main_map" && (
         <div className="flex-1 flex flex-col justify-between space-y-4">
-          {/* Header */}
           <div className="flex justify-between items-center">
             <div className="bg-[#1E1E1E] border border-neutral-800 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-400">
               👤 {userName}
@@ -71,12 +164,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* الخريطة التفاعلية (Leaflet) */}
           <div className="flex-1 min-h-[300px] rounded-3xl overflow-hidden border border-neutral-800 shadow-2xl relative">
             <Map center={[17.7022, 33.9822]} pickupName="ود إلياس / عطبرة" />
           </div>
 
-          {/* القائمة السفلية والأزرار */}
           <div className="bg-[#1E1E1E] p-4 rounded-3xl border border-neutral-800 space-y-3 shadow-2xl">
             <button
               onClick={() => setStep("booking")}
@@ -162,10 +253,9 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 3. شاشة إدارة الطلبات والتفاعل (السائق والراكب) */}
+      {/* 3. شاشة إدارة الطلبات والتفاعل */}
       {step === "booking" && (
         <div className="my-auto space-y-4 max-w-sm mx-auto w-full">
-          {/* شريط العودة وتحويل الدور */}
           <div className="flex justify-between items-center bg-[#1E1E1E] p-3 rounded-2xl border border-neutral-800">
             <button onClick={() => setStep("main_map")} className="text-xs font-bold text-[#EE6C20]">
               ← عودة للخريطة
@@ -192,7 +282,6 @@ export default function DashboardPage() {
 
           {userRole === "rider" ? (
             !isBooking ? (
-              /* نموذج طلب الرحلة للراكب */
               <div className="space-y-4">
                 <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-neutral-800 space-y-3">
                   <div className="flex items-center gap-3">
@@ -214,7 +303,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* خيارات المركبات */}
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     { id: "raksha", name: "ركشة", price: "1,500 ج.س", icon: "🛺" },
@@ -238,17 +326,13 @@ export default function DashboardPage() {
                 </div>
 
                 <button
-                  onClick={() => {
-                    setRideStatus("searching");
-                    setIsBooking(true);
-                  }}
+                  onClick={handleCreateRide}
                   className="w-full bg-[#EE6C20] hover:bg-[#d85e19] text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-orange-500/20 text-base"
                 >
                   تأكيد وطلب الرحلة 🚀
                 </button>
               </div>
             ) : rideStatus !== "completed" ? (
-              /* تتبع حالة الرحلة عند الراكب */
               <div className="space-y-4">
                 <div className="bg-[#1E1E1E] p-6 rounded-2xl border border-[#EE6C20]/30 text-center space-y-3">
                   <div className="text-4xl animate-bounce">
@@ -260,8 +344,8 @@ export default function DashboardPage() {
                   <h2 className="text-lg font-bold text-[#EE6C20]">
                     {rideStatus === "searching" && "جاري البحث عن أقرب ركشة..."}
                     {rideStatus === "accepted" && "تم قبول الطلب! السائق في الطريق إليك"}
-                    {rideStatus === "arrived" && "وصل السائق إلى ود إلياس!"}
-                    {rideStatus === "in_trip" && "الرحلة مستمرة إلى السوق الكبير..."}
+                    {rideStatus === "arrived" && "وصل السائق إلى موقعك!"}
+                    {rideStatus === "in_trip" && "الرحلة مستمرة إلى الوجهة..."}
                   </h2>
                 </div>
 
@@ -276,24 +360,6 @@ export default function DashboardPage() {
                         ★ 4.9
                       </span>
                     </div>
-
-                    {rideStatus === "arrived" && (
-                      <button
-                        onClick={() => setRideStatus("in_trip")}
-                        className="w-full bg-green-500 text-black font-bold py-2.5 rounded-xl text-xs"
-                      >
-                        ركبت مع السائق (بدء المشوار) 🛺
-                      </button>
-                    )}
-
-                    {rideStatus === "in_trip" && (
-                      <button
-                        onClick={() => setRideStatus("completed")}
-                        className="w-full bg-[#EE6C20] text-white font-bold py-2.5 rounded-xl text-xs"
-                      >
-                        الوصول للنهاية وإنهاء الرحلة 🏁
-                      </button>
-                    )}
                   </div>
                 )}
 
@@ -305,16 +371,12 @@ export default function DashboardPage() {
                 </button>
               </div>
             ) : (
-              /* شاشة التقييم والدفع */
               <div className="bg-[#1E1E1E] p-6 rounded-3xl border border-[#EE6C20]/30 space-y-5 text-center">
                 <div className="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center text-3xl mx-auto">
                   🎉
                 </div>
                 <div>
                   <h2 className="text-xl font-bold">وصلت بالسلامة!</h2>
-                  <p className="text-xs text-neutral-400 mt-1">
-                    المبلغ المطلوب: <span className="text-[#EE6C20] font-bold text-sm">1,500 ج.س</span>
-                  </p>
                 </div>
 
                 <div className="space-y-2 text-right">
@@ -345,21 +407,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-xs text-neutral-400">تقييم الخدمة</p>
-                  <div className="flex justify-center gap-2 text-2xl">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        onClick={() => setRating(star)}
-                        className={star <= rating ? "text-amber-400" : "text-neutral-700"}
-                      >
-                        ★
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 <button
                   onClick={() => {
                     setIsBooking(false);
@@ -372,7 +419,7 @@ export default function DashboardPage() {
               </div>
             )
           ) : (
-            /* واجهة عمل السائق بالكامل */
+            /* واجهة السائق الحقيقية المرتبطة بـ Supabase */
             <div className="space-y-4">
               <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-neutral-800 flex justify-between items-center">
                 <div>
@@ -389,40 +436,53 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              {/* طلب مشوار جديد محاكى */}
-              {isOnline && hasIncomingRequest && driverTripState === "idle" && (
-                <div className="bg-[#1E1E1E] border-2 border-[#EE6C20] p-4 rounded-2xl space-y-3 shadow-xl">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-[#EE6C20] text-sm">طلب مشوار جديد 🛺</span>
-                    <span className="text-xs bg-[#EE6C20] text-white px-2 py-0.5 rounded font-bold">1,500 ج.س</span>
-                  </div>
-                  <p className="text-xs text-neutral-300">من: ود إلياس 📍 إلى: السوق الكبير 🔍</p>
-                  <button
-                    onClick={() => {
-                      setHasIncomingRequest(false);
-                      setDriverTripState("heading_to_client");
-                    }}
-                    className="w-full bg-green-500 text-black font-bold py-2.5 rounded-xl text-xs shadow-lg shadow-green-500/20"
-                  >
-                    قبول الطلب ✅
-                  </button>
+              {/* قائمة الطلبات الحقيقية المباشرة من Supabase */}
+              {isOnline && driverTripState === "idle" && (
+                <div className="space-y-3">
+                  {incomingRides.length === 0 ? (
+                    <div className="bg-[#1E1E1E] p-6 rounded-2xl border border-neutral-800 text-center text-xs text-neutral-400 animate-pulse">
+                      ⏳ في انتظار طلبات جديدة...
+                    </div>
+                  ) : (
+                    incomingRides.map((ride) => (
+                      <div key={ride.id} className="bg-[#1E1E1E] border-2 border-[#EE6C20] p-4 rounded-2xl space-y-3 shadow-xl">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-[#EE6C20] text-sm">طلب مشوار جديد 🛺</span>
+                          <span className="text-xs bg-[#EE6C20] text-white px-2 py-0.5 rounded font-bold">
+                            {ride.price} ج.س
+                          </span>
+                        </div>
+                        <p className="text-xs text-neutral-300">
+                          الراكب: {ride.passenger_name}
+                          <br />
+                          من: {ride.pickup_location} 📍 إلى: {ride.destination} 🔍
+                        </p>
+                        <button
+                          onClick={() => handleAcceptRide(ride)}
+                          className="w-full bg-green-500 text-black font-bold py-2.5 rounded-xl text-xs shadow-lg shadow-green-500/20"
+                        >
+                          قبول الطلب ✅
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
 
-              {/* حالة التوجه للعميل */}
+              {/* رحلة السائق الحالية */}
               {driverTripState === "heading_to_client" && (
                 <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-blue-500/30 space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-blue-400 font-bold">توجه للراكب 📍</span>
-                    <span className="text-xs text-neutral-400">الراكب: تاج السر</span>
+                    <span className="text-xs text-neutral-400">الراكب: {activeDriverRide?.passenger_name}</span>
                   </div>
-                  <p className="text-sm font-bold">الموقع: ود إلياس / عطبرة</p>
+                  <p className="text-sm font-bold">الموقع: {activeDriverRide?.pickup_location}</p>
                   <div className="grid grid-cols-2 gap-2 pt-2">
                     <button className="bg-neutral-800 text-xs py-2.5 rounded-xl text-neutral-300 font-bold">
                       📞 اتصال بالراكب
                     </button>
                     <button
-                      onClick={() => setDriverTripState("on_trip")}
+                      onClick={() => updateDriverRideStatus("arrived", "on_trip")}
                       className="bg-[#EE6C20] text-white font-bold text-xs py-2.5 rounded-xl"
                     >
                       وصلت للراكب 🛺
@@ -431,21 +491,19 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {/* حالة بدء المشوار */}
               {driverTripState === "on_trip" && (
                 <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-[#EE6C20]/30 space-y-3">
                   <span className="text-xs text-[#EE6C20] font-bold">الرحلة مستمرة 🏁</span>
-                  <p className="text-sm font-bold">الوجهة: السوق الكبير</p>
+                  <p className="text-sm font-bold">الوجهة: {activeDriverRide?.destination}</p>
                   <button
-                    onClick={() => setDriverTripState("finished")}
+                    onClick={() => updateDriverRideStatus("completed", "finished")}
                     className="w-full bg-green-500 text-black font-bold py-3 rounded-xl text-xs"
                   >
-                    إنهاء الرحلة وتحصيل (1,500 ج.س) 💰
+                    إنهاء الرحلة وتحصيل ({activeDriverRide?.price} ج.س) 💰
                   </button>
                 </div>
               )}
 
-              {/* إتمام رحلة السائق */}
               {driverTripState === "finished" && (
                 <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-green-500/30 text-center space-y-3">
                   <span className="text-3xl">✅</span>
@@ -453,7 +511,7 @@ export default function DashboardPage() {
                   <button
                     onClick={() => {
                       setDriverTripState("idle");
-                      setHasIncomingRequest(true);
+                      setActiveDriverRide(null);
                     }}
                     className="w-full bg-neutral-800 text-white font-bold py-2.5 rounded-xl text-xs"
                   >
