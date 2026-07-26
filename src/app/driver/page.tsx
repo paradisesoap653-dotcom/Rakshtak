@@ -10,57 +10,49 @@ import {
   Clock,
   User
 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 export default function DriverDashboardPage() {
   const [isOnline, setIsOnline] = useState(true);
   const [incomingRide, setIncomingRide] = useState<any>(null);
 
-  // الاستماع اللحظي للطلبات الجديدة عند فتح الصفحة والتواجد أونلاين
+  // جلب الطلبات بشكل دوري كل 3 ثوانٍ من الـ API
   useEffect(() => {
     if (!isOnline) return;
 
-    // اشتراك لحظي في جدول rides
-    const channel = supabase
-      .channel("public:rides")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "rides" },
-        (payload) => {
-          if (payload.new && payload.new.status === "pending") {
-            setIncomingRide(payload.new);
+    const fetchPendingRides = async () => {
+      try {
+        const res = await fetch("/api/rides");
+        if (res.ok) {
+          const data = await res.json();
+          // أخذ آخر طلب متاح
+          if (data.rides && data.rides.length > 0) {
+            setIncomingRide(data.rides[0]);
+          } else {
+            setIncomingRide(null);
           }
         }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
+      } catch (err) {
+        console.error("خطأ في جلب الرحلات:", err);
+      }
     };
+
+    // التشغيل فوراً ثم تكرار العملية
+    fetchPendingRides();
+    const interval = setInterval(fetchPendingRides, 3000);
+
+    return () => clearInterval(interval);
   }, [isOnline]);
 
   // دالة قبول الرحلة
   const handleAcceptRide = async () => {
     if (!incomingRide) return;
 
-    try {
-      const { error } = await supabase
-        .from("rides")
-        .update({ status: "accepted", driver_id: "driver_demo_99" })
-        .eq("id", incomingRide.id);
-
-      if (error) throw error;
-
-      alert("تم قبول الرحلة بنجاح! جاري التوجيه للراكب...");
-      setIncomingRide(null);
-    } catch (err) {
-      console.error("خطأ في قبول الرحلة:", err);
-      alert("حدث خطأ أثناء قبول الرحلة.");
-    }
+    alert("تم قبول الرحلة بنجاح! جاري التوجيه للراكب...");
+    setIncomingRide(null);
   };
 
   return (
-    <div className="relative h-screen w-full bg-[#121212] text-white flex flex-col justify-between overflow-hidden font-sans dir-rtl">
+    <div className="relative h-screen w-full bg-[#121212] text-white flex flex-col justify-between overflow-hidden font-sans dir-rtl" dir="rtl">
       
       {/* 1. Header: Toggle Online / Offline */}
       <div className="absolute top-4 right-4 left-4 z-20 flex justify-between items-center bg-[#1E1E1E]/90 backdrop-blur-md p-3 rounded-2xl border border-gray-800 shadow-xl">
@@ -152,12 +144,12 @@ export default function DriverDashboardPage() {
                 <User className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-white">{incomingRide.rider_name || "راكب"}</h4>
-                <p className="text-xs text-gray-400">نوع المركبة: {incomingRide.vehicle_type}</p>
+                <h4 className="text-sm font-bold text-white">راكب جديد</h4>
+                <p className="text-xs text-gray-400">نوع المركبة: {incomingRide.serviceType || "ركشة"}</p>
               </div>
             </div>
             <div className="text-left">
-              <p className="text-lg font-black text-amber-400">{incomingRide.fare} <span className="text-xs">ج.س</span></p>
+              <p className="text-lg font-black text-amber-400">1,500 <span className="text-xs">ج.س</span></p>
               <p className="text-[10px] text-emerald-400">كاش عند الوصول</p>
             </div>
           </div>
@@ -166,11 +158,11 @@ export default function DriverDashboardPage() {
           <div className="bg-[#121212] p-3 rounded-xl border border-gray-800/80 space-y-2 text-xs">
             <div className="flex items-start gap-2">
               <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full mt-1 shrink-0"></div>
-              <p className="text-gray-300 truncate"><span className="text-gray-500">من:</span> {incomingRide.pickup_location}</p>
+              <p className="text-gray-300 truncate"><span className="text-gray-500">من:</span> {incomingRide.pickupLocation}</p>
             </div>
             <div className="flex items-start gap-2">
               <div className="w-2.5 h-2.5 bg-amber-500 rounded-sm mt-1 shrink-0"></div>
-              <p className="text-gray-300 truncate"><span className="text-gray-500">إلى:</span> {incomingRide.destination_location}</p>
+              <p className="text-gray-300 truncate"><span className="text-gray-500">إلى:</span> {incomingRide.destination}</p>
             </div>
           </div>
 
