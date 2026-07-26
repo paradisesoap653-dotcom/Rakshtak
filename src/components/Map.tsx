@@ -1,57 +1,31 @@
 "use client";
 
-import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-// إصلاح أيقونات Leaflet الافتراضية
-const customIcon = new L.Icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-});
-
-// مكون لتحديث مركز الخريطة عند تغيير المكان
-function ChangeView({ center }: { center: [number, number] }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView(center, 15);
-  }, [center, map]);
-  return null;
-}
-
 interface MapProps {
   center?: [number, number];
   pickupName?: string;
 }
 
-export default function Map({ center = [17.7022, 33.9822], pickupName = "ود إلياس / عطبرة" }: MapProps) {
-  return (
-    <div className="w-full h-full min-h-[250px] rounded-2xl overflow-hidden border border-neutral-800 relative z-0">
-      <MapContainer
-        center={center}
-        zoom={15}
-        scrollWheelZoom={true}
-        className="w-full h-full min-h-[250px]"
-      >
-        <ChangeView center={center} />
-        
-        {/* الخريطة بالثيم الداكن */}
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        />
+export default function Map({
+  center = [17.7022, 33.9822],
+  pickupName = "ود إلياس / عطبرة",
+}: MapProps) {
+  const [lat, lng] = center;
+  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01}%2C${lat - 0.01}%2C${lng + 0.01}%2C${lat + 0.01}&layer=mapnik&marker=${lat}%2C${lng}`;
 
-        {/* علامة الموقع */}
-        <Marker position={center} icon={customIcon}>
-          <Popup>
-            <span className="font-bold text-xs text-black dir-rtl">{pickupName}</span>
-          </Popup>
-        </Marker>
-      </MapContainer>
+  return (
+    <div className="w-full h-full min-h-[250px] rounded-2xl overflow-hidden border border-neutral-800 relative bg-[#1A1D20]">
+      <iframe
+        title="عطبرة - الخريطة"
+        width="100%"
+        height="100%"
+        style={{ filter: "invert(90%) hue-rotate(180deg) brightness(85%) contrast(110%)", border: 0 }}
+        loading="lazy"
+        src={mapUrl}
+        className="w-full h-full min-h-[250px]"
+      />
+      <div className="absolute top-3 right-3 bg-[#121212]/90 border border-neutral-800 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-400 z-10 backdrop-blur-sm">
+        📍 {pickupName}
+      </div>
     </div>
   );
 }
