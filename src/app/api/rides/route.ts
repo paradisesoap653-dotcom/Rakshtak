@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
         serviceType,
         pickupLocation,
         destination,
+        status: "searching", // تمت إضافة الحالة لتتوافق مع استعلام GET
       })
       .returning();
 
