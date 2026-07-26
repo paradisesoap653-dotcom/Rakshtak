@@ -1,25 +1,29 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 
-export default function TirhalApp() {
-  // إدارة الشاشات: phone_auth -> privacy -> location_permission -> profile_setup -> main_map -> edit_location -> booking
-  const [step, setStep] = useState<
-    "phone_auth" | "privacy" | "location_permission" | "profile_setup" | "main_map" | "edit_location" | "booking"
-  >("phone_auth");
+// استدعاء مكون الخريطة ديناميكياً لتفادي أخطاء العرض في السيرفر (SSR)
+const Map = dynamic(() => import("@/components/Map"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-64 bg-[#181C1F] rounded-2xl flex items-center justify-center text-xs text-amber-500 animate-pulse border border-neutral-800">
+      🗺️ جاري تحميل خريطة عطبرة...
+    </div>
+  ),
+});
 
-  // بيانات تسجيل الدخول
-  const [phone, setPhone] = useState("");
+export default function DashboardPage() {
+  // إدارة التنقل: main_map -> booking -> edit_location
+  const [step, setStep] = useState<"main_map" | "booking" | "edit_location">("main_map");
 
   // بيانات المستخدم والموقع
-  const [userName, setUserName] = useState("تاج السر حسن");
-  const [referralCode, setReferralCode] = useState("1234");
-  const [locationType, setLocationType] = useState<"precise" | "approx">("precise");
+  const [userName] = useState("تاج السر حسن");
   const [addressName, setAddressName] = useState("العمل");
-  const [addressCode, setAddressCode] = useState("P262+R7V, عطبرة");
+  const [addressCode] = useState("P262+R7V, عطبرة");
   const [showNoServiceError, setShowNoServiceError] = useState(false);
 
-  // إدارة نظام الرحلة للسائق والراكب
+  // إعدادات الرحلة والمسار
   const [userRole, setUserRole] = useState<"rider" | "driver">("rider");
   const [selectedVehicle, setSelectedVehicle] = useState("raksha");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "bankak">("bankak");
@@ -28,14 +32,13 @@ export default function TirhalApp() {
   const [isBooking, setIsBooking] = useState(false);
   const [rideStatus, setRideStatus] = useState<"searching" | "accepted" | "arrived" | "in_trip" | "completed">("searching");
   const [rating, setRating] = useState(5);
-  const [isRated, setIsRated] = useState(false);
 
   // حالات رحلة السائق
-  const [isOnline, setIsOnline] = useState(false);
-  const [hasIncomingRequest, setHasIncomingRequest] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [hasIncomingRequest, setHasIncomingRequest] = useState(true);
   const [driverTripState, setDriverTripState] = useState<"idle" | "heading_to_client" | "on_trip" | "finished">("idle");
 
-  // محاكاة حالة رحلة الراكب
+  // محاكاة تغير حالة رحلة الراكب
   useEffect(() => {
     if (isBooking && rideStatus === "searching") {
       const timer1 = setTimeout(() => setRideStatus("accepted"), 3000);
@@ -47,210 +50,46 @@ export default function TirhalApp() {
     }
   }, [isBooking, rideStatus]);
 
-  // محاكاة طلب السائق
-  useEffect(() => {
-    if (userRole === "driver" && isOnline && driverTripState === "idle") {
-      const timer = setTimeout(() => setHasIncomingRequest(true), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [userRole, isOnline, driverTripState]);
-
   return (
     <div className="min-h-screen bg-[#121212] text-white flex flex-col justify-between p-4 dir-rtl font-sans select-none">
       
-      {/* 0. شاشة تسجيل الهاتف (الوضع الداكن المطور) */}
-      {step === "phone_auth" && (
-        <div className="my-auto bg-[#1E1E1E] p-6 rounded-3xl border border-neutral-800 space-y-6 text-center max-w-sm mx-auto shadow-2xl w-full">
-          <div className="flex items-center justify-center gap-2 text-xl font-bold text-[#EE6C20]">
-            <span>🛺</span>
-            <span>Rakshtak | ركشتك</span>
-          </div>
-
-          <div className="space-y-2">
-            <h2 className="text-lg font-bold text-white">أدخل رقم الهاتف</h2>
-            <p className="text-xs text-neutral-400">سنرسل لك رمز التحقق للتأكيد</p>
-          </div>
-
-          <div className="space-y-4">
-            <input
-              type="tel"
-              placeholder="+249114537190"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full bg-[#121212] border border-neutral-700 rounded-2xl py-3.5 px-4 text-center text-lg text-white font-mono dir-ltr focus:outline-none focus:border-[#EE6C20] transition-all"
-            />
-
-            <button
-              onClick={() => setStep("privacy")}
-              className="w-full bg-[#EE6C20] hover:bg-[#d85e19] text-white font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-orange-500/20 text-sm"
-            >
-              إرسال رمز التحقق 📩
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 1. شاشة إشعار الخصوصية */}
-      {step === "privacy" && (
-        <div className="my-auto bg-[#1E1E1E] p-6 rounded-3xl border border-neutral-800 space-y-6 text-center max-w-sm mx-auto shadow-2xl">
-          <div className="w-16 h-16 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center text-3xl mx-auto">
-            🛡️
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-xl font-bold text-white">إشعار الخصوصية</h2>
-            <p className="text-xs text-neutral-400 leading-relaxed px-2">
-              يجمع تطبيق ركشتك بيانات الموقع لتفعيل تتبُّع مسارك خلال الرحلة فقط، حتى عندما يكون التطبيق مغلقًا أو غير مُستخدَم.
-            </p>
-          </div>
-          <button
-            onClick={() => setStep("location_permission")}
-            className="w-full bg-[#EE6C20] hover:bg-[#d85e19] text-white font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-orange-500/20 text-sm"
-          >
-            موافق
-          </button>
-        </div>
-      )}
-
-      {/* 2. شاشة إذن الموقع الجغرافي */}
-      {step === "location_permission" && (
-        <div className="my-auto bg-[#1E1E1E] p-6 rounded-3xl border border-neutral-800 space-y-6 max-w-sm mx-auto shadow-2xl">
-          <div className="text-center space-y-2">
-            <div className="w-12 h-12 bg-neutral-800 rounded-full flex items-center justify-center text-2xl mx-auto">
-              📍
-            </div>
-            <h2 className="text-sm font-bold text-neutral-200">
-              السماح لتطبيق ركشتك بالوصول إلى الموقع الجغرافي لهذا الجهاز؟
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 py-2">
-            <button
-              onClick={() => setLocationType("approx")}
-              className={`p-3 rounded-2xl border flex flex-col items-center gap-2 ${
-                locationType === "approx" ? "border-amber-500 bg-amber-500/10" : "border-neutral-800 bg-[#121212]"
-              }`}
-            >
-              <div className="w-12 h-12 rounded-full border border-dashed border-amber-500 flex items-center justify-center text-xs text-amber-500">
-                🌐
-              </div>
-              <span className="text-xs font-bold">تقريبي</span>
-            </button>
-
-            <button
-              onClick={() => setLocationType("precise")}
-              className={`p-3 rounded-2xl border flex flex-col items-center gap-2 ${
-                locationType === "precise" ? "border-amber-500 bg-amber-500/10" : "border-neutral-800 bg-[#121212]"
-              }`}
-            >
-              <div className="w-12 h-12 rounded-full border-2 border-amber-500 flex items-center justify-center text-xs text-amber-500">
-                🎯
-              </div>
-              <span className="text-xs font-bold">دقيق</span>
-            </button>
-          </div>
-
-          <div className="space-y-2">
-            <button
-              onClick={() => setStep("profile_setup")}
-              className="w-full bg-[#121212] hover:bg-neutral-800 py-3 rounded-xl text-xs font-bold border border-neutral-700"
-            >
-              أثناء استخدام التطبيق
-            </button>
-            <button
-              onClick={() => setStep("profile_setup")}
-              className="w-full bg-[#121212] hover:bg-neutral-800 py-3 rounded-xl text-xs font-bold border border-neutral-700"
-            >
-              هذه المرة فقط
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 3. شاشة إدخال البيانات الشخصية */}
-      {step === "profile_setup" && (
-        <div className="my-auto space-y-8 max-w-sm mx-auto w-full px-2">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold">أضف بعض المعلومات الشخصية</h1>
-            <button onClick={() => setStep("main_map")} className="text-sm text-neutral-400 hover:text-white">
-              حفظ
-            </button>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-2xl text-neutral-400">
-              👤
-            </div>
-            <button className="text-sm font-bold text-neutral-300">إضافة صورة</button>
-          </div>
-
-          <div className="space-y-6 pt-4">
-            <div className="space-y-1">
-              <label className="text-xs text-amber-500 font-bold block">الاسم</label>
-              <input
-                type="text"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                className="w-full bg-transparent border-b border-amber-500 py-2 text-base text-white focus:outline-none"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs text-neutral-500 block">رمز الإحالة إن وجد</label>
-              <input
-                type="text"
-                value={referralCode}
-                onChange={(e) => setReferralCode(e.target.value)}
-                className="w-full bg-transparent border-b border-neutral-800 py-2 text-sm text-white focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="pt-10">
-            <button
-              onClick={() => setStep("main_map")}
-              className="w-full bg-[#EE6C20] hover:bg-[#d85e19] text-white font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-orange-500/20 text-sm"
-            >
-              متابعة 🚀
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 4. شاشة الخريطة الرئيسية والأماكن المفضلة */}
+      {/* 1. الشاشة الرئيسية مع الخريطة التفاعلية */}
       {step === "main_map" && (
-        <div className="relative flex-1 flex flex-col justify-between -m-4 p-4 min-h-screen bg-[#181C1F]">
-          <div className="absolute inset-0 bg-[#15191C] flex flex-col items-center justify-center text-neutral-700 space-y-3">
-            <div className="w-48 h-48 rounded-full border border-neutral-800 flex items-center justify-center bg-neutral-900/30">
-              <span className="text-4xl animate-pulse">📍</span>
-            </div>
-            <p className="text-xs text-neutral-500">خريطة الموقع الحالية (ود إلياس / عطبرة)</p>
-          </div>
-
-          <div className="relative z-10 flex justify-between items-center">
-            <button
-              onClick={() => setStep("profile_setup")}
-              className="w-10 h-10 bg-neutral-900/80 backdrop-blur rounded-full flex items-center justify-center border border-neutral-700 text-lg"
-            >
-              ☰
-            </button>
+        <div className="flex-1 flex flex-col justify-between space-y-4">
+          {/* Header */}
+          <div className="flex justify-between items-center">
             <div className="bg-[#1E1E1E] border border-neutral-800 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-400">
               👤 {userName}
             </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStep("booking")}
+                className="bg-[#EE6C20] hover:bg-[#d85e19] text-white px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+              >
+                🛺 طلب مشوار
+              </button>
+            </div>
           </div>
 
-          <div className="relative z-10 bg-[#1E1E1E] p-4 rounded-3xl border border-neutral-800 space-y-4 shadow-2xl">
+          {/* الخريطة التفاعلية (Leaflet) */}
+          <div className="flex-1 min-h-[300px] rounded-3xl overflow-hidden border border-neutral-800 shadow-2xl relative">
+            <Map center={[17.7022, 33.9822]} pickupName="ود إلياس / عطبرة" />
+          </div>
+
+          {/* القائمة السفلية والأزرار */}
+          <div className="bg-[#1E1E1E] p-4 rounded-3xl border border-neutral-800 space-y-3 shadow-2xl">
             <button
               onClick={() => setStep("booking")}
-              className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 text-base transition-all shadow-lg shadow-amber-500/20"
+              className="w-full bg-[#EE6C20] hover:bg-[#d85e19] text-white font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 text-sm transition-all shadow-lg shadow-orange-500/20"
             >
               <span>🛺</span>
-              <span>طلب رحلة الآن</span>
+              <span>الانتقال لواجهة الطلب والحالة</span>
             </button>
 
             <div className="flex gap-2 overflow-x-auto py-1">
               <button
                 onClick={() => setStep("booking")}
-                className="flex items-center gap-2 bg-[#2A2A2A] hover:bg-neutral-700 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap border border-neutral-700"
+                className="flex items-center gap-2 bg-[#2A2A2A] hover:bg-neutral-700 px-4 py-2.5 rounded-xl text-xs font-bold border border-neutral-700"
               >
                 <span>🏠</span>
                 <span>المنزل</span>
@@ -258,7 +97,7 @@ export default function TirhalApp() {
 
               <button
                 onClick={() => setStep("edit_location")}
-                className="flex items-center gap-2 bg-[#2A2A2A] hover:bg-neutral-700 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap border border-neutral-700"
+                className="flex items-center gap-2 bg-[#2A2A2A] hover:bg-neutral-700 px-4 py-2.5 rounded-xl text-xs font-bold border border-neutral-700"
               >
                 <span>💼</span>
                 <span>إضافة مكان العمل</span>
@@ -274,7 +113,7 @@ export default function TirhalApp() {
 
             {showNoServiceError && (
               <div className="bg-red-500/10 border border-red-500/30 p-3 rounded-2xl flex justify-between items-center text-xs text-red-400">
-                <span>⚠️ لا توجد خدمة في هذه المنطقة</span>
+                <span>⚠️ لا توجد خدمة تغطية متوفرة في هذه المنطقة حالياً</span>
                 <button onClick={() => setShowNoServiceError(false)} className="text-white font-bold px-2">
                   ✕
                 </button>
@@ -284,59 +123,67 @@ export default function TirhalApp() {
         </div>
       )}
 
-      {/* 5. شاشة تعديل المكان */}
+      {/* 2. شاشة تعديل المكان */}
       {step === "edit_location" && (
         <div className="my-auto space-y-6 max-w-sm mx-auto w-full px-2">
           <div className="flex justify-between items-center">
-            <h1 className="text-xl font-bold">تعديل الموقع</h1>
-            <button onClick={() => setStep("main_map")} className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-sm">
+            <h1 className="text-xl font-bold">تعديل الموقع المفضّل</h1>
+            <button
+              onClick={() => setStep("main_map")}
+              className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-sm"
+            >
               ✕
             </button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-4 bg-[#1E1E1E] p-4 rounded-2xl border border-neutral-800">
             <div className="space-y-1">
-              <label className="text-xs text-neutral-500 block">العنوان</label>
+              <label className="text-xs text-neutral-500 block">العنوان الجغرافي</label>
               <p className="text-sm font-bold text-neutral-300">{addressCode}</p>
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs text-amber-500 font-bold block">الاسم</label>
+              <label className="text-xs text-[#EE6C20] font-bold block">اسم المكان</label>
               <input
                 type="text"
                 value={addressName}
                 onChange={(e) => setAddressName(e.target.value)}
-                className="w-full bg-transparent border-b border-amber-500 py-2 text-base text-white focus:outline-none"
+                className="w-full bg-transparent border-b border-[#EE6C20] py-2 text-base text-white focus:outline-none"
               />
             </div>
           </div>
 
           <button
             onClick={() => setStep("main_map")}
-            className="w-full bg-[#EE6C20] hover:bg-[#d85e19] text-white font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-orange-500/20 text-sm mt-6"
+            className="w-full bg-[#EE6C20] hover:bg-[#d85e19] text-white font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-orange-500/20 text-sm"
           >
             حفظ المكان 📍
           </button>
         </div>
       )}
 
-      {/* 6. واجهة طلب الرحلة وتتبع السائق والتقييم والدفع */}
+      {/* 3. شاشة إدارة الطلبات والتفاعل (السائق والراكب) */}
       {step === "booking" && (
         <div className="my-auto space-y-4 max-w-sm mx-auto w-full">
-          <div className="flex justify-between items-center bg-[#1E1E1E] p-3 rounded-2xl border border-gray-800">
-            <button onClick={() => setStep("main_map")} className="text-xs font-bold text-amber-400">
+          {/* شريط العودة وتحويل الدور */}
+          <div className="flex justify-between items-center bg-[#1E1E1E] p-3 rounded-2xl border border-neutral-800">
+            <button onClick={() => setStep("main_map")} className="text-xs font-bold text-[#EE6C20]">
               ← عودة للخريطة
             </button>
             <div className="flex gap-1 text-xs bg-[#121212] p-1 rounded-xl">
               <button
                 onClick={() => setUserRole("rider")}
-                className={`px-3 py-1 rounded-lg ${userRole === "rider" ? "bg-amber-500 text-black font-bold" : "text-gray-400"}`}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  userRole === "rider" ? "bg-[#EE6C20] text-white font-bold" : "text-neutral-400"
+                }`}
               >
                 راكب
               </button>
               <button
                 onClick={() => setUserRole("driver")}
-                className={`px-3 py-1 rounded-lg ${userRole === "driver" ? "bg-amber-500 text-black font-bold" : "text-gray-400"}`}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  userRole === "driver" ? "bg-[#EE6C20] text-white font-bold" : "text-neutral-400"
+                }`}
               >
                 سائق
               </button>
@@ -345,35 +192,47 @@ export default function TirhalApp() {
 
           {userRole === "rider" ? (
             !isBooking ? (
+              /* نموذج طلب الرحلة للراكب */
               <div className="space-y-4">
-                <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-gray-800 space-y-3">
+                <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-neutral-800 space-y-3">
                   <div className="flex items-center gap-3">
-                    <span className="text-green-500 text-xl">📍</span>
-                    <input type="text" defaultValue="ود إلياس / عطبرة" className="bg-transparent w-full focus:outline-none text-sm text-gray-200" />
+                    <span className="text-green-500 text-lg">📍</span>
+                    <input
+                      type="text"
+                      defaultValue="ود إلياس / عطبرة"
+                      className="bg-transparent w-full focus:outline-none text-sm text-neutral-200"
+                    />
                   </div>
-                  <hr className="border-gray-800" />
+                  <hr className="border-neutral-800" />
                   <div className="flex items-center gap-3">
-                    <span className="text-amber-500 text-xl">🔍</span>
-                    <input type="text" defaultValue="السوق الكبير" className="bg-transparent w-full focus:outline-none text-sm text-gray-200" />
+                    <span className="text-[#EE6C20] text-lg">🔍</span>
+                    <input
+                      type="text"
+                      defaultValue="السوق الكبير"
+                      className="bg-transparent w-full focus:outline-none text-sm text-neutral-200"
+                    />
                   </div>
                 </div>
 
+                {/* خيارات المركبات */}
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: "raksha", name: "ركشة (مشوار)", price: "1,500 ج.س", icon: "🛺" },
-                    { id: "tuk_tuk", name: "توك توك (بضاعة)", price: "2,500 ج.س", icon: "🛺" },
-                    { id: "taxi", name: "تكسي (ترحال)", price: "3,500 ج.س", icon: "🚕" },
+                    { id: "raksha", name: "ركشة", price: "1,500 ج.س", icon: "🛺" },
+                    { id: "tuk_tuk", name: "توك توك", price: "2,500 ج.س", icon: "🛺" },
+                    { id: "taxi", name: "تكسي", price: "3,500 ج.س", icon: "🚕" },
                   ].map((v) => (
                     <button
                       key={v.id}
                       onClick={() => setSelectedVehicle(v.id)}
-                      className={`p-3 rounded-2xl border flex flex-col items-center gap-1 ${
-                        selectedVehicle === v.id ? "border-amber-500 bg-amber-500/10 text-white" : "border-gray-800 bg-[#1E1E1E] text-gray-400"
+                      className={`p-3 rounded-2xl border flex flex-col items-center gap-1 transition-all ${
+                        selectedVehicle === v.id
+                          ? "border-[#EE6C20] bg-[#EE6C20]/10 text-white"
+                          : "border-neutral-800 bg-[#1E1E1E] text-neutral-400"
                       }`}
                     >
                       <span className="text-2xl">{v.icon}</span>
                       <span className="font-bold text-xs">{v.name}</span>
-                      <span className="text-xs text-amber-400">{v.price}</span>
+                      <span className="text-xs text-[#EE6C20]">{v.price}</span>
                     </button>
                   ))}
                 </div>
@@ -383,37 +242,39 @@ export default function TirhalApp() {
                     setRideStatus("searching");
                     setIsBooking(true);
                   }}
-                  className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold py-4 rounded-2xl transition-colors text-base"
+                  className="w-full bg-[#EE6C20] hover:bg-[#d85e19] text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-orange-500/20 text-base"
                 >
                   تأكيد وطلب الرحلة 🚀
                 </button>
               </div>
             ) : rideStatus !== "completed" ? (
-              /* تتبع الرحلة عند الراكب */
+              /* تتبع حالة الرحلة عند الراكب */
               <div className="space-y-4">
-                <div className="bg-[#1E1E1E] p-6 rounded-2xl border border-amber-500/30 text-center space-y-3">
+                <div className="bg-[#1E1E1E] p-6 rounded-2xl border border-[#EE6C20]/30 text-center space-y-3">
                   <div className="text-4xl animate-bounce">
                     {rideStatus === "searching" && "⏳"}
                     {rideStatus === "accepted" && "🛺"}
                     {rideStatus === "arrived" && "📍"}
-                    {rideStatus === "in_trip" && "🚩"}
+                    {rideStatus === "in_trip" && "🏁"}
                   </div>
-                  <h2 className="text-lg font-bold text-amber-400">
+                  <h2 className="text-lg font-bold text-[#EE6C20]">
                     {rideStatus === "searching" && "جاري البحث عن أقرب ركشة..."}
                     {rideStatus === "accepted" && "تم قبول الطلب! السائق في الطريق إليك"}
-                    {rideStatus === "arrived" && "وصل السائق في ود إلياس!"}
+                    {rideStatus === "arrived" && "وصل السائق إلى ود إلياس!"}
                     {rideStatus === "in_trip" && "الرحلة مستمرة إلى السوق الكبير..."}
                   </h2>
                 </div>
 
                 {rideStatus !== "searching" && (
-                  <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-gray-800 space-y-3">
+                  <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-neutral-800 space-y-3">
                     <div className="flex justify-between items-center">
                       <div>
                         <h3 className="font-bold text-base">محمد أحمد (السائق)</h3>
-                        <p className="text-xs text-gray-400">ركشة خضراء • 45892</p>
+                        <p className="text-xs text-neutral-400">ركشة • 45892</p>
                       </div>
-                      <span className="bg-amber-500/20 text-amber-400 text-xs font-bold px-2.5 py-1 rounded-full">★ 4.9</span>
+                      <span className="bg-amber-500/20 text-amber-400 text-xs font-bold px-2.5 py-1 rounded-full">
+                        ★ 4.9
+                      </span>
                     </div>
 
                     {rideStatus === "arrived" && (
@@ -428,7 +289,7 @@ export default function TirhalApp() {
                     {rideStatus === "in_trip" && (
                       <button
                         onClick={() => setRideStatus("completed")}
-                        className="w-full bg-amber-500 text-black font-bold py-2.5 rounded-xl text-xs"
+                        className="w-full bg-[#EE6C20] text-white font-bold py-2.5 rounded-xl text-xs"
                       >
                         الوصول للنهاية وإنهاء الرحلة 🏁
                       </button>
@@ -436,29 +297,35 @@ export default function TirhalApp() {
                   </div>
                 )}
 
-                <button onClick={() => setIsBooking(false)} className="w-full bg-red-600/20 text-red-400 border border-red-500/30 py-3 rounded-2xl font-bold">
+                <button
+                  onClick={() => setIsBooking(false)}
+                  className="w-full bg-red-600/20 text-red-400 border border-red-500/30 py-3 rounded-2xl font-bold text-xs"
+                >
                   إلغاء الرحلة
                 </button>
               </div>
             ) : (
-              /* الخطوة (2): شاشة التقييم والدفع للراكب */
-              <div className="bg-[#1E1E1E] p-6 rounded-3xl border border-amber-500/30 space-y-5 text-center">
+              /* شاشة التقييم والدفع */
+              <div className="bg-[#1E1E1E] p-6 rounded-3xl border border-[#EE6C20]/30 space-y-5 text-center">
                 <div className="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center text-3xl mx-auto">
                   🎉
                 </div>
                 <div>
                   <h2 className="text-xl font-bold">وصلت بالسلامة!</h2>
-                  <p className="text-xs text-gray-400 mt-1">المبلغ المطلوب: <span className="text-amber-400 font-bold text-sm">1,500 ج.س</span></p>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    المبلغ المطلوب: <span className="text-[#EE6C20] font-bold text-sm">1,500 ج.س</span>
+                  </p>
                 </div>
 
-                {/* اختيار طريقة الدفع */}
                 <div className="space-y-2 text-right">
-                  <label className="text-xs text-gray-400 font-bold block">طريقة الدفع</label>
+                  <label className="text-xs text-neutral-400 font-bold block">طريقة الدفع</label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => setPaymentMethod("bankak")}
                       className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 ${
-                        paymentMethod === "bankak" ? "border-amber-500 bg-amber-500/10 text-amber-400" : "border-gray-800 bg-[#121212] text-gray-400"
+                        paymentMethod === "bankak"
+                          ? "border-[#EE6C20] bg-[#EE6C20]/10 text-[#EE6C20]"
+                          : "border-neutral-800 bg-[#121212] text-neutral-400"
                       }`}
                     >
                       <span>📲</span>
@@ -467,7 +334,9 @@ export default function TirhalApp() {
                     <button
                       onClick={() => setPaymentMethod("cash")}
                       className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 ${
-                        paymentMethod === "cash" ? "border-amber-500 bg-amber-500/10 text-amber-400" : "border-gray-800 bg-[#121212] text-gray-400"
+                        paymentMethod === "cash"
+                          ? "border-[#EE6C20] bg-[#EE6C20]/10 text-[#EE6C20]"
+                          : "border-neutral-800 bg-[#121212] text-neutral-400"
                       }`}
                     >
                       <span>💵</span>
@@ -476,12 +345,15 @@ export default function TirhalApp() {
                   </div>
                 </div>
 
-                {/* التقييم بالنجوم */}
                 <div className="space-y-2">
-                  <p className="text-xs text-gray-400">قيم تجربتك مع السائق</p>
+                  <p className="text-xs text-neutral-400">تقييم الخدمة</p>
                   <div className="flex justify-center gap-2 text-2xl">
                     {[1, 2, 3, 4, 5].map((star) => (
-                      <button key={star} onClick={() => setRating(star)} className={star <= rating ? "text-amber-400" : "text-gray-600"}>
+                      <button
+                        key={star}
+                        onClick={() => setRating(star)}
+                        className={star <= rating ? "text-amber-400" : "text-neutral-700"}
+                      >
                         ★
                       </button>
                     ))}
@@ -490,7 +362,6 @@ export default function TirhalApp() {
 
                 <button
                   onClick={() => {
-                    setIsRated(true);
                     setIsBooking(false);
                     setStep("main_map");
                   }}
@@ -501,35 +372,37 @@ export default function TirhalApp() {
               </div>
             )
           ) : (
-            /* الخطوة (1): تفاعلية وضع السائق بالكامل */
+            /* واجهة عمل السائق بالكامل */
             <div className="space-y-4">
-              <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-gray-800 flex justify-between items-center">
+              <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-neutral-800 flex justify-between items-center">
                 <div>
                   <p className="font-bold text-sm">حالة السائق</p>
-                  <p className="text-xs text-gray-400">{isOnline ? "مستعد لاستقبال الطلبات" : "غير متصل"}</p>
+                  <p className="text-xs text-neutral-400">{isOnline ? "مستعد لاستقبال الطلبات" : "غير متصل"}</p>
                 </div>
                 <button
                   onClick={() => setIsOnline(!isOnline)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold ${isOnline ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    isOnline ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                  }`}
                 >
                   {isOnline ? "🟢 متصل" : "🔴 غير متصل"}
                 </button>
               </div>
 
-              {/* إشعار طلب جديد */}
+              {/* طلب مشوار جديد محاكى */}
               {isOnline && hasIncomingRequest && driverTripState === "idle" && (
-                <div className="bg-amber-500/10 border-2 border-amber-500 p-4 rounded-2xl space-y-3">
+                <div className="bg-[#1E1E1E] border-2 border-[#EE6C20] p-4 rounded-2xl space-y-3 shadow-xl">
                   <div className="flex justify-between items-center">
-                    <span className="font-bold text-amber-400 text-sm">طلب مشوار جديد 🛺</span>
-                    <span className="text-xs bg-amber-500 text-black px-2 py-0.5 rounded font-bold">1,500 ج.س</span>
+                    <span className="font-bold text-[#EE6C20] text-sm">طلب مشوار جديد 🛺</span>
+                    <span className="text-xs bg-[#EE6C20] text-white px-2 py-0.5 rounded font-bold">1,500 ج.س</span>
                   </div>
-                  <p className="text-xs text-gray-300">من: ود إلياس 📍 إلى: السوق الكبير 🔍</p>
+                  <p className="text-xs text-neutral-300">من: ود إلياس 📍 إلى: السوق الكبير 🔍</p>
                   <button
                     onClick={() => {
                       setHasIncomingRequest(false);
                       setDriverTripState("heading_to_client");
                     }}
-                    className="w-full bg-green-500 text-black font-bold py-2.5 rounded-xl text-xs"
+                    className="w-full bg-green-500 text-black font-bold py-2.5 rounded-xl text-xs shadow-lg shadow-green-500/20"
                   >
                     قبول الطلب ✅
                   </button>
@@ -541,14 +414,16 @@ export default function TirhalApp() {
                 <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-blue-500/30 space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-blue-400 font-bold">توجه للراكب 📍</span>
-                    <span className="text-xs text-gray-400">الراكب: تاج السر</span>
+                    <span className="text-xs text-neutral-400">الراكب: تاج السر</span>
                   </div>
                   <p className="text-sm font-bold">الموقع: ود إلياس / عطبرة</p>
                   <div className="grid grid-cols-2 gap-2 pt-2">
-                    <button className="bg-neutral-800 text-xs py-2 rounded-xl">📞 اتصال بالراكب</button>
+                    <button className="bg-neutral-800 text-xs py-2.5 rounded-xl text-neutral-300 font-bold">
+                      📞 اتصال بالراكب
+                    </button>
                     <button
                       onClick={() => setDriverTripState("on_trip")}
-                      className="bg-amber-500 text-black font-bold text-xs py-2 rounded-xl"
+                      className="bg-[#EE6C20] text-white font-bold text-xs py-2.5 rounded-xl"
                     >
                       وصلت للراكب 🛺
                     </button>
@@ -556,10 +431,10 @@ export default function TirhalApp() {
                 </div>
               )}
 
-              {/* حالة السائق أثناء الرحلة */}
+              {/* حالة بدء المشوار */}
               {driverTripState === "on_trip" && (
-                <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-amber-500/30 space-y-3">
-                  <span className="text-xs text-amber-400 font-bold">الرحلة مستمرة 🏁</span>
+                <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-[#EE6C20]/30 space-y-3">
+                  <span className="text-xs text-[#EE6C20] font-bold">الرحلة مستمرة 🏁</span>
                   <p className="text-sm font-bold">الوجهة: السوق الكبير</p>
                   <button
                     onClick={() => setDriverTripState("finished")}
@@ -570,14 +445,17 @@ export default function TirhalApp() {
                 </div>
               )}
 
-              {/* إنهاء رحلة السائق */}
+              {/* إتمام رحلة السائق */}
               {driverTripState === "finished" && (
                 <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-green-500/30 text-center space-y-3">
                   <span className="text-3xl">✅</span>
                   <p className="font-bold text-sm">تم إتمام الرحلة بنجاح!</p>
                   <button
-                    onClick={() => setDriverTripState("idle")}
-                    className="w-full bg-neutral-800 text-white font-bold py-2 rounded-xl text-xs"
+                    onClick={() => {
+                      setDriverTripState("idle");
+                      setHasIncomingRequest(true);
+                    }}
+                    className="w-full bg-neutral-800 text-white font-bold py-2.5 rounded-xl text-xs"
                   >
                     استقبال طلبات جديدة 🔄
                   </button>
