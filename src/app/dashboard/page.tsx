@@ -99,13 +99,14 @@ export default function RiderDashboardPage() {
                 </div>
               </div>
 
-              <p className="text-xs text-gray-400 px-1">اختر نوع المركبة:</p>
+              <p className="text-xs text-gray-400 px-1">اختر نوع الخدمة:</p>
 
+              {/* قائمة وسائل النقل المحدثة */}
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: "raksha", name: "ركشة", price: "1,500 ج.س", icon: "🛺" },
-                  { id: "tuk_tuk", name: "توك توك مغلق", price: "2,200 ج.س", icon: "🛺" },
-                  { id: "motor", name: "موتر توصيل", price: "1,000 ج.س", icon: "🏍️" },
+                  { id: "raksha", name: "ركشة", desc: "مشوار", price: "1,500 ج.س", icon: "🛺" },
+                  { id: "tuk_tuk", name: "توك توك", desc: "بضاعة", price: "2,500 ج.س", icon: "🛺" },
+                  { id: "taxi", name: "تكسي", desc: "ترحال", price: "3,500 ج.س", icon: "🚕" },
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -118,6 +119,7 @@ export default function RiderDashboardPage() {
                   >
                     <span className="text-2xl">{item.icon}</span>
                     <span className="font-bold text-sm">{item.name}</span>
+                    <span className="text-[10px] text-gray-400">({item.desc})</span>
                     <span className="text-xs text-amber-400">{item.price}</span>
                   </button>
                 ))}
@@ -128,9 +130,9 @@ export default function RiderDashboardPage() {
                   setRideStatus("searching");
                   setIsBooking(true);
                 }}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold py-4 rounded-2xl transition-colors text-base"
+                className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold py-4 rounded-2xl transition-colors text-base shadow-lg shadow-amber-500/10"
               >
-                تأكيد وطلب الرحلة 🛺
+                تأكيد وطلب الرحلة 🚀
               </button>
             </div>
           ) : rideStatus !== "completed" ? (
@@ -139,11 +141,11 @@ export default function RiderDashboardPage() {
               <div className="bg-[#1E1E1E] p-6 rounded-2xl border border-amber-500/30 text-center space-y-3">
                 <div className="text-4xl animate-bounce">
                   {rideStatus === "searching" && "⏳"}
-                  {rideStatus === "accepted" && "🛺"}
+                  {rideStatus === "accepted" && (selectedVehicle === "taxi" ? "🚕" : "🛺")}
                   {rideStatus === "arrived" && "📍"}
                 </div>
                 <h2 className="text-lg font-bold text-amber-400">
-                  {rideStatus === "searching" && "جاري البحث عن أقرب ركشة..."}
+                  {rideStatus === "searching" && "جاري البحث عن أقرب وسيلة نقل..."}
                   {rideStatus === "accepted" && "تم قبول الطلب! السائق في الطريق إليك"}
                   {rideStatus === "arrived" && "السائق وصل في الموقع الحالي"}
                 </h2>
@@ -154,7 +156,9 @@ export default function RiderDashboardPage() {
                   <div className="flex justify-between items-center">
                     <div>
                       <h3 className="font-bold text-lg">محمد أحمد</h3>
-                      <p className="text-xs text-gray-400">ركشة خضراء • رقم اللوحة: 45892</p>
+                      <p className="text-xs text-gray-400">
+                        {selectedVehicle === "taxi" ? "تكسي أصفر" : selectedVehicle === "tuk_tuk" ? "توك توك بضائع" : "ركشة خضراء"} • رقم اللوحة: 45892
+                      </p>
                     </div>
                     <span className="bg-amber-500/20 text-amber-400 text-xs font-bold px-3 py-1 rounded-full">
                       ★ 4.9
@@ -189,11 +193,15 @@ export default function RiderDashboardPage() {
               )}
             </div>
           ) : (
-            /* شاشة التقيم والدفع بعد اكتمال الرحلة */
+            /* شاشة التقييم والدفع */
             <div className="bg-[#1E1E1E] p-6 rounded-2xl border border-amber-500/30 text-center space-y-5">
               <div className="text-5xl">🎉</div>
               <h2 className="text-xl font-bold text-amber-400">وصلت بالسلامة!</h2>
-              <p className="text-sm text-gray-400">المبلغ المطلوب: <span className="text-white font-bold">1,500 ج.س</span></p>
+              <p className="text-sm text-gray-400">
+                المبلغ المطلوب: <span className="text-white font-bold">
+                  {selectedVehicle === "taxi" ? "3,500 ج.س" : selectedVehicle === "tuk_tuk" ? "2,500 ج.س" : "1,500 ج.س"}
+                </span>
+              </p>
 
               <div className="space-y-2">
                 <p className="text-xs text-gray-300">كيف كانت تجربتك مع السائق؟</p>
@@ -227,7 +235,6 @@ export default function RiderDashboardPage() {
       {/* 3. واجهة السائق (Driver View) */}
       {userRole === "driver" && (
         <div className="my-auto space-y-4">
-          {/* زر الاتصال واستقبال الطلبات */}
           <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-gray-800 flex justify-between items-center">
             <div>
               <p className="font-bold text-sm">حالة السائق الآن</p>
@@ -250,21 +257,20 @@ export default function RiderDashboardPage() {
           {!isOnline && (
             <div className="bg-[#1E1E1E] p-8 rounded-2xl border border-gray-800 text-center space-y-2 text-gray-400">
               <span className="text-4xl block">💤</span>
-              <p className="text-sm font-bold">اضغط على زر "متصل" للبدء في استقبال طلبات الركاب.</p>
+              <p className="text-sm font-bold">اضغط على زر "متصل" للبدء في استقبال طلبات المشاوير والبضائع.</p>
             </div>
           )}
 
-          {/* تنبيه وصول طلب جديد */}
           {isOnline && hasIncomingRequest && driverTripState === "idle" && (
             <div className="bg-amber-500/10 border-2 border-amber-500 p-5 rounded-2xl space-y-4 animate-pulse">
               <div className="flex justify-between items-center">
-                <span className="bg-amber-500 text-black text-xs font-bold px-2.5 py-1 rounded-full">طلب جديد! 🛺</span>
-                <span className="text-amber-400 font-bold text-sm">1,500 ج.س</span>
+                <span className="bg-amber-500 text-black text-xs font-bold px-2.5 py-1 rounded-full">طلب ترحال جديد! 🚕</span>
+                <span className="text-amber-400 font-bold text-sm">3,500 ج.س</span>
               </div>
               <div>
-                <p className="font-bold text-sm text-white">الراكب: عثمان علي</p>
+                <p className="font-bold text-sm text-white">العميل: عثمان علي</p>
                 <p className="text-xs text-gray-400">من: السوق الشعبي 📍</p>
-                <p className="text-xs text-gray-400">إلى: السوق الكبير 🏁</p>
+                <p className="text-xs text-gray-400">إلى: المطار 🏁</p>
               </div>
               <div className="flex gap-2">
                 <button
@@ -286,13 +292,12 @@ export default function RiderDashboardPage() {
             </div>
           )}
 
-          {/* تتبع تنفيذ الرحلة من جهة السائق */}
           {driverTripState !== "idle" && (
             <div className="bg-[#1E1E1E] p-5 rounded-2xl border border-gray-800 space-y-4">
               <div className="text-center space-y-1">
                 <span className="text-3xl block">📍</span>
                 <h3 className="font-bold text-amber-400">
-                  {driverTripState === "heading_to_client" ? "في الطريق للراكب (السوق الشعبي)" : "الرحلة مستمرة إلى الوجهة"}
+                  {driverTripState === "heading_to_client" ? "في الطريق للعميل (السوق الشعبي)" : "الرحلة مستمرة إلى الوجهة"}
                 </h3>
               </div>
 
@@ -301,7 +306,7 @@ export default function RiderDashboardPage() {
                   onClick={() => setDriverTripState("on_trip")}
                   className="w-full bg-amber-500 text-black font-bold py-3.5 rounded-xl text-sm"
                 >
-                  وصلت للراكب / بدء الرحلة 🚀
+                  وصلت للعميل / بدء الرحلة 🚀
                 </button>
               ) : (
                 <button
@@ -311,7 +316,7 @@ export default function RiderDashboardPage() {
                   }}
                   className="w-full bg-green-500 text-black font-bold py-3.5 rounded-xl text-sm"
                 >
-                  إنهاء الرحلة واستلام 1,500 ج.س 💵
+                  إنهاء الرحلة واستلام المبلغ 💵
                 </button>
               )}
             </div>
