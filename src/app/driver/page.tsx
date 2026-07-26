@@ -15,7 +15,7 @@ export default function DriverDashboardPage() {
   const [isOnline, setIsOnline] = useState(true);
   const [incomingRide, setIncomingRide] = useState<any>(null);
 
-  // جلب الطلبات بشكل دوري كل 3 ثوانٍ من الـ API
+  // جلب الطلبات بشكل دوري كل 3 ثوانٍ
   useEffect(() => {
     if (!isOnline) return;
 
@@ -24,7 +24,6 @@ export default function DriverDashboardPage() {
         const res = await fetch("/api/rides");
         if (res.ok) {
           const data = await res.json();
-          // أخذ آخر طلب متاح
           if (data.rides && data.rides.length > 0) {
             setIncomingRide(data.rides[0]);
           } else {
@@ -36,25 +35,41 @@ export default function DriverDashboardPage() {
       }
     };
 
-    // التشغيل فوراً ثم تكرار العملية
     fetchPendingRides();
     const interval = setInterval(fetchPendingRides, 3000);
 
     return () => clearInterval(interval);
   }, [isOnline]);
 
-  // دالة قبول الرحلة
+  // دالة قبول الرحلة وتحديث الحالة في السيرفر
   const handleAcceptRide = async () => {
     if (!incomingRide) return;
 
-    alert("تم قبول الرحلة بنجاح! جاري التوجيه للراكب...");
-    setIncomingRide(null);
+    try {
+      const res = await fetch("/api/rides", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rideId: incomingRide.id,
+          status: "accepted",
+        }),
+      });
+
+      if (res.ok) {
+        alert("تم قبول الرحلة بنجاح! جاري التوجيه للراكب...");
+        setIncomingRide(null);
+      } else {
+        alert("حدث خطأ أثناء قبول الرحلة");
+      }
+    } catch (err) {
+      console.error("خطأ في قبول الرحلة:", err);
+    }
   };
 
   return (
     <div className="relative h-screen w-full bg-[#121212] text-white flex flex-col justify-between overflow-hidden font-sans dir-rtl" dir="rtl">
       
-      {/* 1. Header: Toggle Online / Offline */}
+      {/* 1. Header */}
       <div className="absolute top-4 right-4 left-4 z-20 flex justify-between items-center bg-[#1E1E1E]/90 backdrop-blur-md p-3 rounded-2xl border border-gray-800 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-lg border border-amber-500/20">
@@ -66,7 +81,6 @@ export default function DriverDashboardPage() {
           </div>
         </div>
 
-        {/* Online Switch Button */}
         <button
           onClick={() => {
             setIsOnline(!isOnline);
@@ -83,7 +97,7 @@ export default function DriverDashboardPage() {
         </button>
       </div>
 
-      {/* 2. Quick Stats Bar */}
+      {/* 2. Stats */}
       <div className="absolute top-24 right-4 left-4 z-10 grid grid-cols-2 gap-3">
         <div className="bg-[#1E1E1E]/80 backdrop-blur-md border border-gray-800 p-3 rounded-2xl flex items-center gap-3">
           <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl">
@@ -106,7 +120,7 @@ export default function DriverDashboardPage() {
         </div>
       </div>
 
-      {/* 3. Map View Placeholder */}
+      {/* 3. Map / Status View */}
       <div className="absolute inset-0 z-0 bg-[#0c1017] flex items-center justify-center opacity-70">
         <div className="absolute inset-0 bg-[radial-[#1E293B_1px,transparent_1px)] [background-size:16px_16px] opacity-30"></div>
         {!isOnline && (
@@ -122,11 +136,9 @@ export default function DriverDashboardPage() {
         )}
       </div>
 
-      {/* 4. Incoming Ride Request Popup Modal */}
+      {/* 4. Request Modal */}
       {isOnline && incomingRide && (
         <div className="relative z-30 mt-auto bg-[#1E1E1E] border-t-2 border-amber-500 rounded-t-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-300">
-          
-          {/* Header */}
           <div className="flex justify-between items-center border-b border-gray-800 pb-3">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping"></span>
@@ -137,7 +149,6 @@ export default function DriverDashboardPage() {
             </span>
           </div>
 
-          {/* Passenger Info */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-gray-300 border border-gray-700">
@@ -154,7 +165,6 @@ export default function DriverDashboardPage() {
             </div>
           </div>
 
-          {/* Route Details */}
           <div className="bg-[#121212] p-3 rounded-xl border border-gray-800/80 space-y-2 text-xs">
             <div className="flex items-start gap-2">
               <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full mt-1 shrink-0"></div>
@@ -166,7 +176,6 @@ export default function DriverDashboardPage() {
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3 pt-1">
             <button
               onClick={() => setIncomingRide(null)}
@@ -184,10 +193,8 @@ export default function DriverDashboardPage() {
               قبول الرحلة
             </button>
           </div>
-
         </div>
       )}
-
     </div>
   );
 }
