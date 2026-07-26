@@ -1,18 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function HomePage() {
   const router = useRouter();
-  const [mode, setMode] = useState<"passenger" | "driver">("passenger");
   const [selectedVehicle, setSelectedVehicle] = useState("raksha");
   const [pickup, setPickup] = useState("");
   const [destination, setDestination] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  const [activeRide, setActiveRide] = useState<any>(null);
   const [isSearching, setIsSearching] = useState(false);
 
-  // إرسال الطلب لقاعدة البيانات
+  // إرسال طلب جديد
   const handleCreateRide = async () => {
     if (!pickup || !destination) {
       alert("الرجاء كتابة مكان الانطلاق والوجهة");
@@ -33,6 +34,8 @@ export default function HomePage() {
       });
 
       if (res.ok) {
+        const data = await res.json();
+        setActiveRide(data.ride);
         setIsSearching(true);
       } else {
         alert("حدث خطأ أثناء إرسال الطلب");
@@ -45,70 +48,119 @@ export default function HomePage() {
     }
   };
 
+  // 🔄 الاستعلام الدوري اللحظي: يتأكد كل ثانيتين هل السائق قبل الرحلة أم لا
+  useEffect(() => {
+    if (!isSearching || !activeRide?.id) return;
+
+    const checkRideStatus = async () => {
+      try {
+        const res = await fetch(`/api/rides?id=${activeRide.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ride) {
+            setActiveRide(data.ride);
+          }
+        }
+      } catch (err) {
+        console.error("خطأ في متابعة الرحلة:", err);
+      }
+    };
+
+    const interval = setInterval(checkRideStatus, 2000);
+    return () => clearInterval(interval);
+  }, [isSearching, activeRide?.id]);
+
   return (
     <main className="min-h-screen bg-slate-950 text-white flex flex-col justify-between px-5 py-6 font-sans dir-rtl" dir="rtl">
-      {/* 1. الشريط العلوي: التبديل بين الراكب والسائق */}
+      {/* 1. الترويسة العلوية للتحويل بين الراكب والسائق */}
       <div className="w-full max-w-md mx-auto flex justify-between items-center bg-slate-900 p-1.5 rounded-2xl border border-slate-800 shadow-lg">
         <div className="flex gap-1 bg-slate-950 p-1 rounded-xl w-full">
           <button
-            onClick={() => setMode("passenger")}
-            className={`flex-1 py-2.5 rounded-lg font-bold text-sm transition-all ${
-              mode === "passenger"
-                ? "bg-orange-500 text-white shadow-md"
-                : "text-slate-400 hover:text-white"
-            }`}
+            className="flex-1 py-2.5 rounded-lg font-bold text-sm bg-orange-500 text-white shadow-md"
           >
             راكب 🙋‍♂️
           </button>
           <button
-            onClick={() => {
-              setMode("driver");
-              router.push("/driver"); // توجيه للوحة السائق
-            }}
-            className={`flex-1 py-2.5 rounded-lg font-bold text-sm transition-all ${
-              mode === "driver"
-                ? "bg-orange-500 text-white shadow-md"
-                : "text-slate-400 hover:text-white"
-            }`}
+            onClick={() => router.push("/driver")}
+            className="flex-1 py-2.5 rounded-lg font-bold text-sm text-slate-400 hover:text-white transition-all"
           >
             سائق 🛺
           </button>
         </div>
       </div>
 
-      {/* 2. شاشة البحث عن سائق (إذا تم إرسال الطلب) */}
+      {/* 2. شاشات الحالة */}
       {isSearching ? (
         <div className="w-full max-w-md mx-auto my-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center space-y-6 shadow-xl">
-          <div className="text-6xl animate-bounce my-4">🛺</div>
-          <h2 className="text-2xl font-bold text-orange-400">جاري البحث عن أطلب ركشة...</h2>
-          
-          <div className="bg-slate-950 p-4 rounded-2xl text-right space-y-2 border border-slate-800">
-            <p className="text-sm text-slate-400">من: <span className="text-white font-semibold">{pickup}</span></p>
-            <p className="text-sm text-slate-400">إلى: <span className="text-white font-semibold">{destination}</span></p>
-          </div>
+          {activeRide?.status === "accepted" ? (
+            /* عند قبول السائق للطلب */
+            <>
+              <div className="text-6xl animate-bounce my-2">🎉</div>
+              <h2 className="text-2xl font-bold text-emerald-400">تم قبول طلبك!</h2>
+              <p className="text-xs text-slate-300">الكابتن عثمان في الطريق إليك الآن 🛺</p>
 
-          <button
-            onClick={() => setIsSearching(false)}
-            className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl font-bold border border-red-500/20 transition-all"
-          >
-            إلغاء الرحلة
-          </button>
+              <div className="bg-slate-950 p-4 rounded-2xl text-right space-y-2 border border-emerald-500/30">
+                <p className="text-sm text-slate-400">من: <span className="text-white font-semibold">{activeRide.pickupLocation}</span></p>
+                <p className="text-sm text-slate-400">إلى: <span className="text-white font-semibold">{activeRide.destination}</span></p>
+                <p className="text-sm text-slate-400">السعر: <span className="text-amber-400 font-bold">1,500 ج.س</span></p>
+              </div>
+
+              <a
+                href="tel:0912345678"
+                className="block w-full py-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl font-bold text-sm"
+              >
+                📞 الاتصال بالكابتن
+              </a>
+
+              <button
+                onClick={() => {
+                  setIsSearching(false);
+                  setActiveRide(null);
+                  setPickup("");
+                  setDestination("");
+                }}
+                className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-xs"
+              >
+                إنهاء الواجهة
+              </button>
+            </>
+          ) : (
+            /* أثناء انتظار القبول */
+            <>
+              <div className="text-6xl animate-pulse my-4">🛺</div>
+              <h2 className="text-2xl font-bold text-orange-400">جاري البحث عن أطلب ركشة...</h2>
+              
+              <div className="bg-slate-950 p-4 rounded-2xl text-right space-y-2 border border-slate-800">
+                <p className="text-sm text-slate-400">من: <span className="text-white font-semibold">{pickup}</span></p>
+                <p className="text-sm text-slate-400">إلى: <span className="text-white font-semibold">{destination}</span></p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setIsSearching(false);
+                  setActiveRide(null);
+                }}
+                className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl font-bold border border-red-500/20 transition-all"
+              >
+                إلغاء الرحلة
+              </button>
+            </>
+          )}
         </div>
       ) : (
-        /* 3. شاشة طلب المشوار العادية */
+        /* 3. واجهة كتابة الطلب */
         <div className="w-full max-w-md mx-auto my-auto space-y-6">
           <div className="text-center space-y-1">
             <h1 className="text-2xl font-black tracking-wide text-white">تفاصيل المشوار 🛺</h1>
             <p className="text-xs text-slate-400">حدد نقطة الانطلاق والوجهة ليصلك أقرب سائق</p>
           </div>
 
-          {/* حقول أدخل العناوين */}
           <div className="space-y-3">
             <div>
               <label className="text-xs text-slate-400 mr-1 mb-1 block">من (نقطة الانطلاق)</label>
               <input
                 type="text"
-                placeholder="مثال: المنطقة الصناعية، عطبرة"
+                placeholder="مثال: عطبرة"
                 value={pickup}
                 onChange={(e) => setPickup(e.target.value)}
                 className="w-full p-4 rounded-2xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 text-sm transition-all"
@@ -119,7 +171,7 @@ export default function HomePage() {
               <label className="text-xs text-slate-400 mr-1 mb-1 block">إلى (الوجهة)</label>
               <input
                 type="text"
-                placeholder="مثال: خليوه"
+                placeholder="مثال: الدامر"
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
                 className="w-full p-4 rounded-2xl bg-slate-900 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 text-sm transition-all"
@@ -127,7 +179,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* نوع المركبة */}
           <div className="grid grid-cols-3 gap-2 pt-2">
             {[
               { id: "raksha", name: "ركشة", price: "1,500", icon: "🛺" },
@@ -151,7 +202,6 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* زر التأكيد */}
           <button
             onClick={handleCreateRide}
             disabled={loading}
@@ -162,7 +212,6 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* التوقيع السفلي */}
       <div className="text-center text-[11px] text-slate-600">
         تطبيق ركشتك • جميع الحقوق محفوظة
       </div>
