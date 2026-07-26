@@ -3,10 +3,13 @@
 import { useState, useEffect } from "react";
 
 export default function TirhalApp() {
-  // إدارة الشاشات
+  // إدارة الشاشات: phone_auth -> privacy -> location_permission -> profile_setup -> main_map -> edit_location -> booking
   const [step, setStep] = useState<
-    "privacy" | "location_permission" | "profile_setup" | "main_map" | "edit_location" | "booking"
-  >("privacy");
+    "phone_auth" | "privacy" | "location_permission" | "profile_setup" | "main_map" | "edit_location" | "booking"
+  >("phone_auth");
+
+  // بيانات تسجيل الدخول
+  const [phone, setPhone] = useState("");
 
   // بيانات المستخدم والموقع
   const [userName, setUserName] = useState("تاج السر حسن");
@@ -16,17 +19,21 @@ export default function TirhalApp() {
   const [addressCode, setAddressCode] = useState("P262+R7V, عطبرة");
   const [showNoServiceError, setShowNoServiceError] = useState(false);
 
-  // إدارة نظام الرحلة والسائق
+  // إدارة نظام الرحلة للسائق والراكب
   const [userRole, setUserRole] = useState<"rider" | "driver">("rider");
   const [selectedVehicle, setSelectedVehicle] = useState("raksha");
-  const [isBooking, setIsBooking] = useState(false);
-  const [rideStatus, setRideStatus] = useState<"searching" | "accepted" | "arrived" | "completed">("searching");
-  const [rating, setRating] = useState(5);
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "bankak">("bankak");
 
-  // حالات السائق
+  // حالات رحلة الراكب
+  const [isBooking, setIsBooking] = useState(false);
+  const [rideStatus, setRideStatus] = useState<"searching" | "accepted" | "arrived" | "in_trip" | "completed">("searching");
+  const [rating, setRating] = useState(5);
+  const [isRated, setIsRated] = useState(false);
+
+  // حالات رحلة السائق
   const [isOnline, setIsOnline] = useState(false);
   const [hasIncomingRequest, setHasIncomingRequest] = useState(false);
-  const [driverTripState, setDriverTripState] = useState<"idle" | "heading_to_client" | "on_trip">("idle");
+  const [driverTripState, setDriverTripState] = useState<"idle" | "heading_to_client" | "on_trip" | "finished">("idle");
 
   // محاكاة حالة رحلة الراكب
   useEffect(() => {
@@ -51,6 +58,38 @@ export default function TirhalApp() {
   return (
     <div className="min-h-screen bg-[#121212] text-white flex flex-col justify-between p-4 dir-rtl font-sans select-none">
       
+      {/* 0. شاشة تسجيل الهاتف (الوضع الداكن المطور) */}
+      {step === "phone_auth" && (
+        <div className="my-auto bg-[#1E1E1E] p-6 rounded-3xl border border-neutral-800 space-y-6 text-center max-w-sm mx-auto shadow-2xl w-full">
+          <div className="flex items-center justify-center gap-2 text-xl font-bold text-[#EE6C20]">
+            <span>🛺</span>
+            <span>Rakshtak | ركشتك</span>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-lg font-bold text-white">أدخل رقم الهاتف</h2>
+            <p className="text-xs text-neutral-400">سنرسل لك رمز التحقق للتأكيد</p>
+          </div>
+
+          <div className="space-y-4">
+            <input
+              type="tel"
+              placeholder="+249114537190"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full bg-[#121212] border border-neutral-700 rounded-2xl py-3.5 px-4 text-center text-lg text-white font-mono dir-ltr focus:outline-none focus:border-[#EE6C20] transition-all"
+            />
+
+            <button
+              onClick={() => setStep("privacy")}
+              className="w-full bg-[#EE6C20] hover:bg-[#d85e19] text-white font-bold py-3.5 rounded-2xl transition-all shadow-lg shadow-orange-500/20 text-sm"
+            >
+              إرسال رمز التحقق 📩
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. شاشة إشعار الخصوصية */}
       {step === "privacy" && (
         <div className="my-auto bg-[#1E1E1E] p-6 rounded-3xl border border-neutral-800 space-y-6 text-center max-w-sm mx-auto shadow-2xl">
@@ -199,9 +238,7 @@ export default function TirhalApp() {
             </div>
           </div>
 
-          {/* الكارت السفلي - تفعيل زر طلب الرحلة */}
           <div className="relative z-10 bg-[#1E1E1E] p-4 rounded-3xl border border-neutral-800 space-y-4 shadow-2xl">
-            {/* زر طلب الرحلة المفعل */}
             <button
               onClick={() => setStep("booking")}
               className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 text-base transition-all shadow-lg shadow-amber-500/20"
@@ -283,10 +320,9 @@ export default function TirhalApp() {
         </div>
       )}
 
-      {/* 6. واجهة اختيار الرحلة والتتبع (السائق والراكب) */}
+      {/* 6. واجهة طلب الرحلة وتتبع السائق والتقييم والدفع */}
       {step === "booking" && (
         <div className="my-auto space-y-4 max-w-sm mx-auto w-full">
-          {/* زر الرجوع والتبديل */}
           <div className="flex justify-between items-center bg-[#1E1E1E] p-3 rounded-2xl border border-gray-800">
             <button onClick={() => setStep("main_map")} className="text-xs font-bold text-amber-400">
               ← عودة للخريطة
@@ -352,18 +388,21 @@ export default function TirhalApp() {
                   تأكيد وطلب الرحلة 🚀
                 </button>
               </div>
-            ) : (
+            ) : rideStatus !== "completed" ? (
+              /* تتبع الرحلة عند الراكب */
               <div className="space-y-4">
                 <div className="bg-[#1E1E1E] p-6 rounded-2xl border border-amber-500/30 text-center space-y-3">
                   <div className="text-4xl animate-bounce">
                     {rideStatus === "searching" && "⏳"}
                     {rideStatus === "accepted" && "🛺"}
                     {rideStatus === "arrived" && "📍"}
+                    {rideStatus === "in_trip" && "🚩"}
                   </div>
                   <h2 className="text-lg font-bold text-amber-400">
                     {rideStatus === "searching" && "جاري البحث عن أقرب ركشة..."}
                     {rideStatus === "accepted" && "تم قبول الطلب! السائق في الطريق إليك"}
-                    {rideStatus === "arrived" && "وصل السائق في الموقع الحالي"}
+                    {rideStatus === "arrived" && "وصل السائق في ود إلياس!"}
+                    {rideStatus === "in_trip" && "الرحلة مستمرة إلى السوق الكبير..."}
                   </h2>
                 </div>
 
@@ -371,11 +410,29 @@ export default function TirhalApp() {
                   <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-gray-800 space-y-3">
                     <div className="flex justify-between items-center">
                       <div>
-                        <h3 className="font-bold text-base">محمد أحمد</h3>
-                        <p className="text-xs text-gray-400">ركشة خضراء • لوحة: 45892</p>
+                        <h3 className="font-bold text-base">محمد أحمد (السائق)</h3>
+                        <p className="text-xs text-gray-400">ركشة خضراء • 45892</p>
                       </div>
                       <span className="bg-amber-500/20 text-amber-400 text-xs font-bold px-2.5 py-1 rounded-full">★ 4.9</span>
                     </div>
+
+                    {rideStatus === "arrived" && (
+                      <button
+                        onClick={() => setRideStatus("in_trip")}
+                        className="w-full bg-green-500 text-black font-bold py-2.5 rounded-xl text-xs"
+                      >
+                        ركبت مع السائق (بدء المشوار) 🛺
+                      </button>
+                    )}
+
+                    {rideStatus === "in_trip" && (
+                      <button
+                        onClick={() => setRideStatus("completed")}
+                        className="w-full bg-amber-500 text-black font-bold py-2.5 rounded-xl text-xs"
+                      >
+                        الوصول للنهاية وإنهاء الرحلة 🏁
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -383,9 +440,68 @@ export default function TirhalApp() {
                   إلغاء الرحلة
                 </button>
               </div>
+            ) : (
+              /* الخطوة (2): شاشة التقييم والدفع للراكب */
+              <div className="bg-[#1E1E1E] p-6 rounded-3xl border border-amber-500/30 space-y-5 text-center">
+                <div className="w-16 h-16 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center text-3xl mx-auto">
+                  🎉
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">وصلت بالسلامة!</h2>
+                  <p className="text-xs text-gray-400 mt-1">المبلغ المطلوب: <span className="text-amber-400 font-bold text-sm">1,500 ج.س</span></p>
+                </div>
+
+                {/* اختيار طريقة الدفع */}
+                <div className="space-y-2 text-right">
+                  <label className="text-xs text-gray-400 font-bold block">طريقة الدفع</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setPaymentMethod("bankak")}
+                      className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 ${
+                        paymentMethod === "bankak" ? "border-amber-500 bg-amber-500/10 text-amber-400" : "border-gray-800 bg-[#121212] text-gray-400"
+                      }`}
+                    >
+                      <span>📲</span>
+                      <span>تطبيق بنكك</span>
+                    </button>
+                    <button
+                      onClick={() => setPaymentMethod("cash")}
+                      className={`p-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 ${
+                        paymentMethod === "cash" ? "border-amber-500 bg-amber-500/10 text-amber-400" : "border-gray-800 bg-[#121212] text-gray-400"
+                      }`}
+                    >
+                      <span>💵</span>
+                      <span>نقداً (كاش)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* التقييم بالنجوم */}
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-400">قيم تجربتك مع السائق</p>
+                  <div className="flex justify-center gap-2 text-2xl">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button key={star} onClick={() => setRating(star)} className={star <= rating ? "text-amber-400" : "text-gray-600"}>
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setIsRated(true);
+                    setIsBooking(false);
+                    setStep("main_map");
+                  }}
+                  className="w-full bg-[#EE6C20] hover:bg-[#d85e19] text-white font-bold py-3.5 rounded-2xl text-sm"
+                >
+                  إتمام والدفع 💳
+                </button>
+              </div>
             )
           ) : (
-            /* وضع السائق */
+            /* الخطوة (1): تفاعلية وضع السائق بالكامل */
             <div className="space-y-4">
               <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-gray-800 flex justify-between items-center">
                 <div>
@@ -400,14 +516,70 @@ export default function TirhalApp() {
                 </button>
               </div>
 
-              {isOnline && hasIncomingRequest && (
+              {/* إشعار طلب جديد */}
+              {isOnline && hasIncomingRequest && driverTripState === "idle" && (
                 <div className="bg-amber-500/10 border-2 border-amber-500 p-4 rounded-2xl space-y-3">
-                  <p className="font-bold text-amber-400 text-sm">طلب جديد! (عطبرة 📍)</p>
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-amber-400 text-sm">طلب مشوار جديد 🛺</span>
+                    <span className="text-xs bg-amber-500 text-black px-2 py-0.5 rounded font-bold">1,500 ج.س</span>
+                  </div>
+                  <p className="text-xs text-gray-300">من: ود إلياس 📍 إلى: السوق الكبير 🔍</p>
                   <button
-                    onClick={() => setHasIncomingRequest(false)}
+                    onClick={() => {
+                      setHasIncomingRequest(false);
+                      setDriverTripState("heading_to_client");
+                    }}
                     className="w-full bg-green-500 text-black font-bold py-2.5 rounded-xl text-xs"
                   >
                     قبول الطلب ✅
+                  </button>
+                </div>
+              )}
+
+              {/* حالة التوجه للعميل */}
+              {driverTripState === "heading_to_client" && (
+                <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-blue-500/30 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-blue-400 font-bold">توجه للراكب 📍</span>
+                    <span className="text-xs text-gray-400">الراكب: تاج السر</span>
+                  </div>
+                  <p className="text-sm font-bold">الموقع: ود إلياس / عطبرة</p>
+                  <div className="grid grid-cols-2 gap-2 pt-2">
+                    <button className="bg-neutral-800 text-xs py-2 rounded-xl">📞 اتصال بالراكب</button>
+                    <button
+                      onClick={() => setDriverTripState("on_trip")}
+                      className="bg-amber-500 text-black font-bold text-xs py-2 rounded-xl"
+                    >
+                      وصلت للراكب 🛺
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* حالة السائق أثناء الرحلة */}
+              {driverTripState === "on_trip" && (
+                <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-amber-500/30 space-y-3">
+                  <span className="text-xs text-amber-400 font-bold">الرحلة مستمرة 🏁</span>
+                  <p className="text-sm font-bold">الوجهة: السوق الكبير</p>
+                  <button
+                    onClick={() => setDriverTripState("finished")}
+                    className="w-full bg-green-500 text-black font-bold py-3 rounded-xl text-xs"
+                  >
+                    إنهاء الرحلة وتحصيل (1,500 ج.س) 💰
+                  </button>
+                </div>
+              )}
+
+              {/* إنهاء رحلة السائق */}
+              {driverTripState === "finished" && (
+                <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-green-500/30 text-center space-y-3">
+                  <span className="text-3xl">✅</span>
+                  <p className="font-bold text-sm">تم إتمام الرحلة بنجاح!</p>
+                  <button
+                    onClick={() => setDriverTripState("idle")}
+                    className="w-full bg-neutral-800 text-white font-bold py-2 rounded-xl text-xs"
+                  >
+                    استقبال طلبات جديدة 🔄
                   </button>
                 </div>
               )}
