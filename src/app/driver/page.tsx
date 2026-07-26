@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Power, 
   DollarSign, 
@@ -9,16 +10,16 @@ import {
   XCircle,
   Clock,
   User,
-  Navigation,
   PhoneCall
 } from "lucide-react";
 
 export default function DriverDashboardPage() {
+  const router = useRouter();
   const [isOnline, setIsOnline] = useState(true);
   const [incomingRide, setIncomingRide] = useState<any>(null);
-  const [acceptedRide, setAcceptedRide] = useState<any>(null); // الرحلة المقبولة حالياً
+  const [acceptedRide, setAcceptedRide] = useState<any>(null);
 
-  // 1. جلب الطلبات المعلقة بشكل دوري كل 3 ثوانٍ (إذا كان أونلاين ولا توجد رحلة مقبولة)
+  // 🔄 البحث عن طلبات جديدة كل 3 ثوانٍ
   useEffect(() => {
     if (!isOnline || acceptedRide) return;
 
@@ -44,7 +45,7 @@ export default function DriverDashboardPage() {
     return () => clearInterval(interval);
   }, [isOnline, acceptedRide]);
 
-  // 2. دالة قبول الرحلة وتحديث الحالة في قاعدة البيانات
+  // قبول الرحلة
   const handleAcceptRide = async () => {
     if (!incomingRide) return;
 
@@ -69,7 +70,7 @@ export default function DriverDashboardPage() {
     }
   };
 
-  // 3. دالة إنهاء الرحلة
+  // إكمال الرحلة
   const handleCompleteRide = async () => {
     if (!acceptedRide) return;
 
@@ -83,7 +84,7 @@ export default function DriverDashboardPage() {
         }),
       });
 
-      alert("تم إنهاء الرحلة واستلام المبلغ بنجاح!");
+      alert("تم التوصيل بنجاح واستكمال الرحلة! 🚀");
       setAcceptedRide(null);
     } catch (err) {
       console.error("خطأ في إنهاء الرحلة:", err);
@@ -93,12 +94,15 @@ export default function DriverDashboardPage() {
   return (
     <div className="relative min-h-screen w-full bg-[#121212] text-white flex flex-col justify-between overflow-x-hidden font-sans dir-rtl" dir="rtl">
       
-      {/* 1. Header: حالة الاتصال والكابتن */}
+      {/* 1. الشريط العلوي */}
       <div className="fixed top-4 right-4 left-4 z-20 flex justify-between items-center bg-[#1E1E1E]/95 backdrop-blur-md p-3 rounded-2xl border border-gray-800 shadow-xl">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-lg border border-amber-500/20">
-            🛺
-          </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => router.push("/")}
+            className="p-2 bg-gray-800 hover:bg-gray-700 text-xs rounded-xl font-bold"
+          >
+            ← راكب
+          </button>
           <div>
             <h2 className="text-sm font-bold text-white">الكابتن عثمان</h2>
             <p className="text-[10px] text-gray-400">ركشة - خ 2 / 4589</p>
@@ -108,9 +112,7 @@ export default function DriverDashboardPage() {
         <button
           onClick={() => {
             setIsOnline(!isOnline);
-            if (isOnline) {
-              setIncomingRide(null);
-            }
+            if (isOnline) setIncomingRide(null);
           }}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition duration-300 shadow-lg ${
             isOnline 
@@ -123,7 +125,7 @@ export default function DriverDashboardPage() {
         </button>
       </div>
 
-      {/* 2. الإحصائيات السريعة */}
+      {/* 2. الأرباح */}
       <div className="fixed top-24 right-4 left-4 z-10 grid grid-cols-2 gap-3">
         <div className="bg-[#1E1E1E]/90 backdrop-blur-md border border-gray-800 p-3 rounded-2xl flex items-center gap-3">
           <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl">
@@ -146,9 +148,8 @@ export default function DriverDashboardPage() {
         </div>
       </div>
 
-      {/* 3. الخلفية والأنيميشن */}
+      {/* 3. حالة الانتظار */}
       <div className="fixed inset-0 z-0 bg-[#0c1017] flex items-center justify-center">
-        <div className="absolute inset-0 bg-[radial-[#1E293B_1px,transparent_1px)] [background-size:16px_16px] opacity-30"></div>
         {!isOnline && (
           <div className="bg-black/80 backdrop-blur-md px-6 py-3 rounded-full border border-gray-800 text-gray-400 text-sm font-medium z-10">
             قم بتفعيل الحالة لتبدأ استقبال الطلبات ⚡
@@ -162,7 +163,7 @@ export default function DriverDashboardPage() {
         )}
       </div>
 
-      {/* 4. شاشة تفاصيل الرحلة المقبولة الجارية */}
+      {/* 4. شاشة التوصيل (بعد القبول) */}
       {acceptedRide && (
         <div className="fixed bottom-0 inset-x-0 z-30 bg-[#1E1E1E] border-t-2 border-emerald-500 rounded-t-3xl p-5 pb-8 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
           <div className="flex justify-between items-center border-b border-gray-800 pb-3">
@@ -184,15 +185,14 @@ export default function DriverDashboardPage() {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <button 
-              onClick={() => alert("جاري الاتصال بالراكب...")} 
-              className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 border border-gray-700"
-            >
-              <PhoneCall className="w-4 h-4 text-emerald-400" />
-              اتصال بالراكب
-            </button>
-          </div>
+          {/* رابط الاتصال بالراكب بدلاً من alert */}
+          <a
+            href={`tel:${acceptedRide.passengerPhone || "0912345678"}`}
+            className="w-full py-3 bg-[#2A323D] hover:bg-[#343E4C] text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border border-gray-700 transition"
+          >
+            <PhoneCall className="w-4 h-4 text-emerald-400" />
+            اتصال بالراكب
+          </a>
 
           <button
             onClick={handleCompleteRide}
@@ -203,9 +203,9 @@ export default function DriverDashboardPage() {
         </div>
       )}
 
-      {/* 5. بطاقة طلب الرحلة الجديد (Popup Modal) */}
+      {/* 5. بطاقة الطلب الجديد */}
       {isOnline && incomingRide && !acceptedRide && (
-        <div className="fixed bottom-0 inset-x-0 z-30 bg-[#1E1E1E] border-t-2 border-amber-500 rounded-t-3xl p-5 pb-8 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+        <div className="fixed bottom-0 inset-x-0 z-30 bg-[#1E1E1E] border-t-2 border-amber-500 rounded-t-3xl p-5 pb-10 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
           
           <div className="flex justify-between items-center border-b border-gray-800 pb-3">
             <div className="flex items-center gap-2">
@@ -244,8 +244,8 @@ export default function DriverDashboardPage() {
             </div>
           </div>
 
-          {/* أزرار التجاهل والقبول متواجدة في الأسفل بوضوح مرتفع */}
-          <div className="grid grid-cols-2 gap-3 pt-2 pb-2">
+          {/* أزرار التجاهل والقبول */}
+          <div className="grid grid-cols-2 gap-3 pt-2">
             <button
               onClick={() => setIncomingRide(null)}
               className="flex items-center justify-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-3.5 rounded-2xl font-bold text-sm transition active:scale-95"
