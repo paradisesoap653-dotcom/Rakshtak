@@ -1,192 +1,160 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
 
-interface Ride {
-  id: number;
-  pickupLocation: string;
-  destination: string;
-  status: string;
-  customerPhone?: string;
-  customerName?: string;
-}
+import { useState } from "react";
+import { 
+  Power, 
+  MapPin, 
+  Navigation, 
+  DollarSign, 
+  TrendingUp, 
+  CheckCircle, 
+  XCircle,
+  Clock,
+  User
+} from "lucide-react";
 
-export default function DriverDashboard() {
-  const [rides, setRides] = useState<Ride[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const prevRidesCount = useRef<number>(0);
+export default function DriverDashboardPage() {
+  const [isOnline, setIsOnline] = useState(true);
+  const [hasIncomingRequest, setHasIncomingRequest] = useState(true);
 
-  // ===== دالة تشغيل الصوت =====
-  const playSound = () => {
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      oscillator.frequency.value = 880;
-      oscillator.type = "sine";
-      gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.4);
-    } catch (e) {
-      // تجاهل إذا كان المتصفح لا يدعم
-    }
+  // بيانات طلب افتراضي معروض للكابتن
+  const incomingRequest = {
+    passengerName: "محمد عبد الله",
+    pickup: "السوق الشعبي - بالقرب من موقف بحري",
+    destination: "حي العمدة - شارة المحطة",
+    distance: "3.2 كم",
+    fare: "1,800",
+    estimatedTime: "12 دقيقة"
   };
 
-  // ===== جلب الطلبات من الخادم =====
-  const fetchRides = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/rides?status=searching");
-      if (!res.ok) throw new Error(`خطأ في الخادم: ${res.status}`);
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        if (data.length > prevRidesCount.current) {
-          playSound(); // 🔔 تشغيل الصوت عند وصول طلب جديد
-        }
-        prevRidesCount.current = data.length;
-        setRides(data);
-      } else {
-        throw new Error("البيانات غير صحيحة");
-      }
-    } catch (err: any) {
-      setError(err.message || "فشل جلب الطلبات");
-      console.error("Error fetching rides:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ===== التحديث التلقائي كل 3 ثواني =====
-  useEffect(() => {
-    fetchRides();
-    const interval = setInterval(fetchRides, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // ===== قبول الرحلة =====
-  const acceptRide = async (id: number) => {
-    try {
-      await fetch(`/api/rides/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "accepted", driverId: "عبدالله" }),
-      });
-      alert("✅ تم قبول الرحلة!");
-      fetchRides();
-    } catch (error) {
-      alert("❌ فشل القبول");
-    }
-  };
-
-  // ===== إلغاء الرحلة =====
-  const cancelRide = async (id: number) => {
-    if (!confirm("هل تريد إلغاء هذه الرحلة؟")) return;
-    try {
-      await fetch(`/api/rides/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "cancelled" }),
-      });
-      alert("تم إلغاء الرحلة");
-      fetchRides();
-    } catch (error) {
-      alert("فشل الإلغاء");
-    }
-  };
-
-  // ===== واجهة المستخدم =====
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-slate-800 p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* ===== الشريط العلوي مع الأزرار ===== */}
-        <div className="flex flex-wrap justify-between items-center mb-6 gap-2">
-          <h1 className="text-3xl font-bold text-white">🚗 لوحة السائقين</h1>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-bold">
-              {rides.length} طلب جديد
-            </span>
-            <button 
-              onClick={fetchRides} 
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-full text-sm font-bold transition disabled:opacity-50"
-            >
-              {loading ? "⏳" : "🔄 تحديث"}
-            </button>
-            {/* ===== زر اختبار الصوت ===== */}
-            <button 
-              onClick={() => {
-                try {
-                  const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                  const oscillator = audioCtx.createOscillator();
-                  const gainNode = audioCtx.createGain();
-                  oscillator.connect(gainNode);
-                  gainNode.connect(audioCtx.destination);
-                  oscillator.frequency.value = 880;
-                  oscillator.type = "sine";
-                  gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
-                  oscillator.start();
-                  oscillator.stop(audioCtx.currentTime + 0.6);
-                } catch (e) {
-                  alert("🔇 لم نتمكن من تشغيل الصوت، تأكد من رفع مستوى الصوت.");
-                }
-              }}
-              className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-full text-sm font-bold transition"
-            >
-              🔊 اختبار
-            </button>
+    <div className="relative h-screen w-full bg-[#121212] text-white flex flex-col justify-between overflow-hidden font-sans dir-rtl">
+      
+      {/* 1. Header: Toggle Online / Offline */}
+      <div className="absolute top-4 right-4 left-4 z-20 flex justify-between items-center bg-[#1E1E1E]/90 backdrop-blur-md p-3 rounded-2xl border border-gray-800 shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-lg border border-amber-500/20">
+            🛺
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-white">الكابتن عثمان</h2>
+            <p className="text-[10px] text-gray-400">ركشة - خ 2 / 4589</p>
           </div>
         </div>
 
-        {/* عرض خطأ الجلب إن وجد */}
-        {error && (
-          <div className="bg-red-500/20 border border-red-500 text-red-200 p-3 rounded-xl mb-4 text-center">
-            ⚠️ {error} - اضغط "تحديث" للمحاولة مرة أخرى
-          </div>
-        )}
+        {/* Online Switch Button */}
+        <button
+          onClick={() => setIsOnline(!isOnline)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition duration-300 shadow-lg ${
+            isOnline 
+              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" 
+              : "bg-red-500/20 text-red-400 border border-red-500/40"
+          }`}
+        >
+          <Power className="w-4 h-4" />
+          <span>{isOnline ? "متصل (جاهز)" : "غير متصل"}</span>
+        </button>
+      </div>
 
-        {/* قائمة الطلبات */}
-        {rides.length === 0 && !error ? (
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-12 text-center border border-white/10">
-            <p className="text-gray-200 text-xl font-semibold">😴 لا توجد طلبات بحث حالياً</p>
-            <p className="text-gray-400 text-sm mt-2">انتظر حتى يطلب راكب جديد</p>
+      {/* 2. Quick Stats Bar */}
+      <div className="absolute top-24 right-4 left-4 z-10 grid grid-cols-2 gap-3">
+        <div className="bg-[#1E1E1E]/80 backdrop-blur-md border border-gray-800 p-3 rounded-2xl flex items-center gap-3">
+          <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl">
+            <DollarSign className="w-5 h-5" />
           </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {rides.map((ride) => (
-              <div key={ride.id} className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/10 hover:bg-white/20 transition">
-                <div className="flex justify-between items-start mb-3">
-                  <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full"># {ride.id}</span>
-                  <span className="text-yellow-400 text-sm font-bold">⏳ بانتظار السائق</span>
-                </div>
-                <p className="text-white font-bold text-lg">📍 {ride.pickupLocation}</p>
-                <p className="text-gray-300 text-lg mb-2">🏁 {ride.destination}</p>
-                <p className="text-gray-300 text-sm">👤 {ride.customerName || "مسافر"}</p>
-                <p className="text-gray-400 text-sm mb-4">📞 {ride.customerPhone || "غير متوفر"}</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => acceptRide(ride.id)}
-                    className="flex-1 bg-green-500 text-white py-2 rounded-xl font-bold hover:bg-green-600 transition"
-                  >
-                    قبول ✅
-                  </button>
-                  <button
-                    onClick={() => cancelRide(ride.id)}
-                    className="flex-1 bg-red-500/50 text-white py-2 rounded-xl font-bold hover:bg-red-600 transition"
-                  >
-                    إلغاء ❌
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div>
+            <p className="text-[10px] text-gray-400 font-medium">أرباح اليوم</p>
+            <p className="text-base font-extrabold text-amber-400">12,500 <span className="text-[10px]">ج.س</span></p>
           </div>
-        )}
-        <div className="mt-8 text-center text-gray-400 text-sm">
-          <button onClick={() => { localStorage.clear(); window.location.href = "/login"; }} className="text-red-400 underline font-bold">تسجيل خروج</button>
+        </div>
+
+        <div className="bg-[#1E1E1E]/80 backdrop-blur-md border border-gray-800 p-3 rounded-2xl flex items-center gap-3">
+          <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-xl">
+            <TrendingUp className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-400 font-medium">الرحلات المكتملة</p>
+            <p className="text-base font-extrabold text-white">8 <span className="text-[10px]">رحلات</span></p>
+          </div>
         </div>
       </div>
+
+      {/* 3. Map View Placeholder */}
+      <div className="absolute inset-0 z-0 bg-[#0c1017] flex items-center justify-center opacity-70">
+        <div className="absolute inset-0 bg-[radial-[#1E293B_1px,transparent_1px)] [background-size:16px_16px] opacity-30"></div>
+        {!isOnline && (
+          <div className="bg-black/80 backdrop-blur-md px-6 py-3 rounded-full border border-gray-800 text-gray-400 text-sm font-medium z-10">
+            قم بتفعيل الحالة لتبدأ استقبال الطلبات ⚡
+          </div>
+        )}
+      </div>
+
+      {/* 4. Incoming Ride Request Popup Modal */}
+      {isOnline && hasIncomingRequest && (
+        <div className="relative z-30 mt-auto bg-[#1E1E1E] border-t-2 border-amber-500 rounded-t-3xl p-5 shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-300">
+          
+          {/* Header */}
+          <div className="flex justify-between items-center border-b border-gray-800 pb-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping"></span>
+              <h3 className="text-sm font-bold text-amber-400">طلب رحلة جديد!</h3>
+            </div>
+            <span className="text-xs text-gray-400 flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" /> 15 ثانية
+            </span>
+          </div>
+
+          {/* Passenger Info */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-gray-300 border border-gray-700">
+                <User className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white">{incomingRequest.passengerName}</h4>
+                <p className="text-xs text-gray-400">{incomingRequest.distance} • {incomingRequest.estimatedTime}</p>
+              </div>
+            </div>
+            <div className="text-left">
+              <p className="text-lg font-black text-amber-400">{incomingRequest.fare} <span className="text-xs">ج.س</span></p>
+              <p className="text-[10px] text-emerald-400">كاش عند الوصول</p>
+            </div>
+          </div>
+
+          {/* Route Details */}
+          <div className="bg-[#121212] p-3 rounded-xl border border-gray-800/80 space-y-2 text-xs">
+            <div className="flex items-start gap-2">
+              <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full mt-1 shrink-0"></div>
+              <p className="text-gray-300 truncate"><span className="text-gray-500">من:</span> {incomingRequest.pickup}</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <div className="w-2.5 h-2.5 bg-amber-500 rounded-sm mt-1 shrink-0"></div>
+              <p className="text-gray-300 truncate"><span className="text-gray-500">إلى:</span> {incomingRequest.destination}</p>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <button
+              onClick={() => setHasIncomingRequest(false)}
+              className="flex items-center justify-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-3.5 rounded-2xl font-bold text-sm transition"
+            >
+              <XCircle className="w-4 h-4" />
+              رفض
+            </button>
+
+            <button
+              onClick={() => alert("تم قبول الطلب! جاري التوجيه للإنطلاق...")}
+              className="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-black py-3.5 rounded-2xl font-bold text-sm transition shadow-lg"
+            >
+              <CheckCircle className="w-4 h-4" />
+              قبول الرحلة
+            </button>
+          </div>
+
+        </div>
+      )}
+
     </div>
   );
 }
