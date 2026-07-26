@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { rides } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 
-// ===== 1. إنشاء طلب رحلة جديد من الراكب =====
+// 1. إضافة رحلة جديدة من الراكب
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -36,13 +36,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ===== 2. جلب الرحلات التي تنتظر سائق =====
+// 2. جلب الرحلات المنتظرة للسائق أو جلب رحلة محددة للراكب
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const rideId = searchParams.get("id");
 
-    // لو الراكب بيبحث عن حالة رحلته بـ ID معني
+    // للراكب: متابعة رحلة معينة عبر הـ ID
     if (rideId) {
       const singleRide = await db
         .select()
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ride: singleRide[0] || null }, { status: 200 });
     }
 
-    // لو السائق بيبحث عن الطلبات الجديدة
+    // للسائق: جلب جميع الرحلات التي في حالة "searching"
     const pendingRides = await db
       .select()
       .from(rides)
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ===== 3. تحديث حالة الرحلة (قبول الرحلة من السائق) =====
+// 3. تحديث حالة الرحلة (قبول / إكمال / إلغاء)
 export async function PATCH(request: NextRequest) {
   try {
     const { rideId, status } = await request.json();
