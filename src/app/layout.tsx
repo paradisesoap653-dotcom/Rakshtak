@@ -1,11 +1,18 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+// 1️⃣ تصدير الـ Viewport بشكل مستقل (لحله تحذير themeColor)
+export const viewport: Viewport = {
+  themeColor: "#f59e0b",
+  width: "device-width",
+  initialScale: 1,
+};
+
+// 2️⃣ تصدير الـ Metadata بدون themeColor
 export const metadata: Metadata = {
   title: "ركشتك - Rakshatak",
   description: "تطبيق طلب الركشات والتكسي",
   manifest: "/manifest.json",
-  themeColor: "#f59e0b",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
