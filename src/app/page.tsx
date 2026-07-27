@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import dynamic from "next/dynamic";
+import { useState, useEffect } from "react";
+import dynamicImport from "next/dynamic";
 
-// 📍 تحميل الخريطة ديناميكياً مع إيقاف الـ SSR لتجنب مشاكل البناء
-const DynamicMap = dynamic(() => import("@/components/Map"), {
+// 📍 تحميل الخريطة ديناميكياً بدون SSR لمنع تجميد الواجهة والأزرار
+const Map = dynamicImport(() => import("@/components/Map"), {
   ssr: false,
   loading: () => (
-    <div className="h-full w-full bg-slate-900 animate-pulse flex items-center justify-center text-xs text-slate-500">
-      جاري تحميل الخريطة...
+    <div className="w-full h-full bg-slate-900/60 flex items-center justify-center text-xs text-slate-500 animate-pulse rounded-2xl">
+      🗺️ جاري تحميل الخريطة...
     </div>
   ),
 });
@@ -55,6 +55,7 @@ export default function HomePage() {
     };
   }, []);
 
+  // تنفيذ تثبيت التطبيق عند الضغط على الزر
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
@@ -65,28 +66,26 @@ export default function HomePage() {
     setDeferredPrompt(null);
   };
 
-  const fetchData = useCallback(async () => {
-    try {
-      const res = await fetch("/api/rides");
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.rides)) {
-          setPendingRides(data.rides.filter((r: any) => r.status === "pending"));
-        }
-      }
-    } catch (error) {
-      console.error("خطأ في جلب البيانات:", error);
-    }
-  }, []);
-
+  // جلب البيانات بشكل دوري
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(() => {
-      fetchData();
-    }, 5000);
+    const fetchData = async () => {
+      try {
+        const res = await fetch("/api/rides");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.rides)) {
+            setPendingRides(data.rides.filter((r: any) => r.status === "pending"));
+          }
+        }
+      } catch (error) {
+        console.error("خطأ في جلب البيانات:", error);
+      }
+    };
 
+    fetchData();
+    const interval = setInterval(fetchData, 4000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, []);
 
   const handleCreateRide = async () => {
     if (!pickup || !destination) {
@@ -129,7 +128,6 @@ export default function HomePage() {
       });
       if (res.ok) {
         alert("تم قبول الرحلة بنجاح!");
-        fetchData();
       }
     } catch (error) {
       console.error("Error accepting ride:", error);
@@ -249,7 +247,7 @@ export default function HomePage() {
                 <h3 className="text-base font-bold text-amber-400 text-center">الرحلة جارية حالياً 🚀</h3>
                 
                 <div className="h-44 rounded-2xl overflow-hidden border border-slate-800">
-                  <DynamicMap center={[17.7022, 33.9822]} pickupName={activeRide.pickupLocation} />
+                  <Map center={[17.7022, 33.9822]} pickupName={activeRide.pickupLocation} />
                 </div>
 
                 <div className="bg-[#0a0c10] p-4 rounded-2xl border border-slate-800/80 space-y-2 text-xs">
@@ -282,7 +280,7 @@ export default function HomePage() {
                 </div>
 
                 <div className="h-48 rounded-2xl overflow-hidden border border-slate-800">
-                  <DynamicMap center={[17.7022, 33.9822]} pickupName={pickup || "عطبرة"} />
+                  <Map center={[17.7022, 33.9822]} pickupName={pickup || "عطبرة"} />
                 </div>
 
                 <div className="space-y-3">
