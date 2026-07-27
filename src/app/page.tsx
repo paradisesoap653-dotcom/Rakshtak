@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import dynamicImport from "next/dynamic";
+import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 
-// 📍 تحميل الخريطة ديناميكياً بدون SSR لمنع تجميد الواجهة والأزرار
-const Map = dynamicImport(() => import("@/components/Map"), {
+// 📍 تحميل الخريطة ديناميكياً مع إيقاف الـ SSR لتجنب مشاكل البناء
+const DynamicMap = dynamic(() => import("@/components/Map"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full bg-slate-900/60 flex items-center justify-center text-xs text-slate-500 animate-pulse rounded-2xl">
-      🗺️ جاري تحميل الخريطة...
+    <div className="h-full w-full bg-slate-900/50 animate-pulse flex items-center justify-center text-xs text-slate-500 rounded-2xl border border-slate-800">
+      جاري تحميل الخريطة...
     </div>
   ),
 });
@@ -55,7 +55,6 @@ export default function HomePage() {
     };
   }, []);
 
-  // تنفيذ تثبيت التطبيق عند الضغط على الزر
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
@@ -66,27 +65,30 @@ export default function HomePage() {
     setDeferredPrompt(null);
   };
 
-  // جلب البيانات بشكل دوري
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch("/api/rides");
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.rides)) {
-            setPendingRides(data.rides.filter((r: any) => r.status === "pending"));
-          }
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/rides");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.rides)) {
+          setPendingRides(data.rides.filter((r: any) => r.status === "pending"));
         }
-      } catch (error) {
-        console.error("خطأ في جلب البيانات:", error);
       }
-    };
-
-    fetchData();
-    const interval = setInterval(fetchData, 4000);
-    return () => clearInterval(interval);
+    } catch (error) {
+      console.error("خطأ في جلب البيانات:", error);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(() => {
+      fetchData();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
+  // إنشاء طلب جديد ورؤية الخطأ بدقة إذا فشل
   const handleCreateRide = async () => {
     if (!pickup || !destination) {
       alert("الرجاء إدخال نقطة الانطلاق والوجهة");
@@ -110,10 +112,11 @@ export default function HomePage() {
       if (data.success) {
         setActiveRide(data.ride);
       } else {
-        alert("حدث خطأ أثناء إرسال الطلب");
+        alert(`فشل الإرسال: ${data.error || "خطأ غير معروف في السيرفر"}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating ride:", error);
+      alert(`خطأ في الاتصال: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -126,11 +129,16 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rideId, status: "accepted" }),
       });
-      if (res.ok) {
+      const data = await res.json();
+      if (data.success) {
         alert("تم قبول الرحلة بنجاح!");
+        fetchData();
+      } else {
+        alert(`تعذر قبول الطلب: ${data.error}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error accepting ride:", error);
+      alert(`خطأ في الاتصال: ${error.message}`);
     }
   };
 
@@ -159,7 +167,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-[#0a0c10] text-white flex flex-col items-center justify-start p-4 font-sans" dir="rtl">
       
-      {/* 📲 شريط زر التثبيت اعلى التطبيق */}
+      {/* 📲 شريط زر التثبيت PWA */}
       {showInstallBtn && (
         <div className="w-full max-w-md bg-gradient-to-r from-amber-500 to-orange-500 p-3 rounded-2xl mb-4 flex items-center justify-between shadow-lg text-white">
           <div className="flex items-center gap-2">
@@ -247,13 +255,13 @@ export default function HomePage() {
                 <h3 className="text-base font-bold text-amber-400 text-center">الرحلة جارية حالياً 🚀</h3>
                 
                 <div className="h-44 rounded-2xl overflow-hidden border border-slate-800">
-                  <Map center={[17.7022, 33.9822]} pickupName={activeRide.pickupLocation} />
+                  <DynamicMap center={[17.7022, 33.9822]} pickupName={activeRide.pickup_location || activeRide.pickupLocation} />
                 </div>
 
                 <div className="bg-[#0a0c10] p-4 rounded-2xl border border-slate-800/80 space-y-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-slate-400">من:</span>
-                    <span className="font-bold text-white">{activeRide.pickupLocation}</span>
+                    <span className="font-bold text-white">{activeRide.pickup_location || activeRide.pickupLocation}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">إلى:</span>
@@ -261,7 +269,7 @@ export default function HomePage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">السعر المقترح:</span>
-                    <span className="font-bold text-emerald-400">{activeRide.offeredPrice} ج.س</span>
+                    <span className="font-bold text-emerald-400">{activeRide.offered_price || activeRide.offeredPrice} ج.س</span>
                   </div>
                 </div>
 
@@ -280,7 +288,7 @@ export default function HomePage() {
                 </div>
 
                 <div className="h-48 rounded-2xl overflow-hidden border border-slate-800">
-                  <Map center={[17.7022, 33.9822]} pickupName={pickup || "عطبرة"} />
+                  <DynamicMap center={[17.7022, 33.9822]} pickupName={pickup || "عطبرة"} />
                 </div>
 
                 <div className="space-y-3">
@@ -359,7 +367,7 @@ export default function HomePage() {
                     <div className="space-y-1 text-xs">
                       <div className="flex justify-between text-white">
                         <span className="text-slate-400">من:</span>
-                        <span className="font-bold">{ride.pickupLocation}</span>
+                        <span className="font-bold">{ride.pickup_location || ride.pickupLocation}</span>
                       </div>
                       <div className="flex justify-between text-white">
                         <span className="text-slate-400">إلى:</span>
@@ -367,7 +375,7 @@ export default function HomePage() {
                       </div>
                       <div className="flex justify-between text-amber-400 font-bold pt-1">
                         <span>السعر المقترح:</span>
-                        <span>{ride.offeredPrice} ج.س</span>
+                        <span>{ride.offered_price || ride.offeredPrice} ج.س</span>
                       </div>
                     </div>
 
