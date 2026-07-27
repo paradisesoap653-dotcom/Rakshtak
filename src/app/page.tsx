@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Map from "@/components/Map";
 
 export default function HomePage() {
@@ -56,26 +56,30 @@ export default function HomePage() {
     setDeferredPrompt(null);
   };
 
-  // جلب البيانات بشكل دوري
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch("/api/rides");
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.rides)) {
-            setPendingRides(data.rides.filter((r: any) => r.status === "pending"));
-          }
+  // دالة جلب البيانات الآمنة بدون تكرار
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/rides");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.rides)) {
+          setPendingRides(data.rides.filter((r: any) => r.status === "pending"));
         }
-      } catch (error) {
-        console.error("خطأ في جلب البيانات:", error);
       }
-    };
-
-    fetchData();
-    const interval = setInterval(fetchData, 3000);
-    return () => clearInterval(interval);
+    } catch (error) {
+      console.error("خطأ في جلب البيانات:", error);
+    }
   }, []);
+
+  // جلب البيانات بشكل دوري في المتصفح فقط
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(() => {
+      fetchData();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   const handleCreateRide = async () => {
     if (!pickup || !destination) {
@@ -118,6 +122,7 @@ export default function HomePage() {
       });
       if (res.ok) {
         alert("تم قبول الرحلة بنجاح!");
+        fetchData();
       }
     } catch (error) {
       console.error("Error accepting ride:", error);
