@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// إنشاء اتصال مباشر بالـ Client لتجنب مشاكل المتغيرات المفقودة
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+// دالة مساعدة لإنشاء العميل داخل الدوال فقط لمنع الخطأ أثناء الـ Build
+function getSupabaseClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-key";
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  return createClient(supabaseUrl, supabaseAnonKey);
+}
 
 // 📩 1. جلب الطلبات (GET)
 export async function GET() {
   try {
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return NextResponse.json({ success: false, error: "Missing Supabase Credentials" }, { status: 500 });
-    }
+    const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
       .from("rides")
@@ -39,6 +39,8 @@ export async function POST(request: Request) {
     if (!pickupLocation || !destination) {
       return NextResponse.json({ success: false, error: "Missing fields" }, { status: 400 });
     }
+
+    const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
       .from("rides")
@@ -70,6 +72,8 @@ export async function PATCH(request: Request) {
   try {
     const body = await request.json();
     const { rideId, status } = body;
+
+    const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
       .from("rides")
