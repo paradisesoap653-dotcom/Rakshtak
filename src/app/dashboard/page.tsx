@@ -32,6 +32,8 @@ export default function DashboardPage() {
   const [isBooking, setIsBooking] = useState(false);
   const [currentRideId, setCurrentRideId] = useState<string | null>(null);
   const [rideStatus, setRideStatus] = useState<"searching" | "accepted" | "arrived" | "in_trip" | "completed">("searching");
+  const [driverPhone, setDriverPhone] = useState<string>("0912345678");
+  const [passengerPhone] = useState<string>("0912345678");
   const [rating, setRating] = useState(5);
 
   // حالات رحلة السائق
@@ -50,7 +52,7 @@ export default function DashboardPage() {
       .insert([
         {
           passenger_name: userName,
-          passenger_phone: "0912345678",
+          passenger_phone: passengerPhone,
           pickup_location: "ود إلياس / عطبرة",
           destination: "السوق الكبير",
           price: selectedVehicle === "raksha" ? 1500 : selectedVehicle === "tuk_tuk" ? 2500 : 3500,
@@ -67,7 +69,7 @@ export default function DashboardPage() {
     }
   };
 
-  // الاستماع لتحديث حالة طلب الراكب الحالي
+  // الاستماع اللحظي لتحديث حالة طلب الراكب من قبل السائق
   useEffect(() => {
     if (!currentRideId) return;
 
@@ -90,6 +92,19 @@ export default function DashboardPage() {
       supabase.removeChannel(channel);
     };
   }, [currentRideId]);
+
+  // إرسال تقييم الرحلة من الراكب وإتمام الطلب
+  const handleCompleteRatingAndPayment = async () => {
+    if (currentRideId) {
+      await supabase
+        .from("rides")
+        .update({ rating: rating, payment_method: paymentMethod })
+        .eq("id", currentRideId);
+    }
+    setIsBooking(false);
+    setCurrentRideId(null);
+    setStep("main_map");
+  };
 
   // ================= 2. الربط مع Supabase للسائق (Realtime) =================
   useEffect(() => {
@@ -353,13 +368,21 @@ export default function DashboardPage() {
                   <div className="bg-[#1E1E1E] p-4 rounded-2xl border border-neutral-800 space-y-3">
                     <div className="flex justify-between items-center">
                       <div>
-                        <h3 className="font-bold text-base">محمد أحمد (السائق)</h3>
-                        <p className="text-xs text-neutral-400">ركشة • 45892</p>
+                        <h3 className="font-bold text-base">الكابتن عثمان</h3>
+                        <p className="text-xs text-neutral-400">ركشة - خ 2 / 4589</p>
                       </div>
                       <span className="bg-amber-500/20 text-amber-400 text-xs font-bold px-2.5 py-1 rounded-full">
                         ★ 4.9
                       </span>
                     </div>
+
+                    <a
+                      href={`tel:${driverPhone}`}
+                      className="w-full bg-emerald-700/30 hover:bg-emerald-700/50 border border-emerald-500/40 text-emerald-300 font-bold py-3 rounded-xl flex items-center justify-center gap-2 text-xs transition-all"
+                    >
+                      <span>📞</span>
+                      <span>الأتصال بالكابتن</span>
+                    </a>
                   </div>
                 )}
 
@@ -377,6 +400,20 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold">وصلت بالسلامة!</h2>
+                  <p className="text-xs text-neutral-400 mt-1">شاركتنا تقييمك للرحلة مع الكابتن</p>
+                </div>
+
+                {/* تقييم النجوم */}
+                <div className="flex justify-center gap-2 text-2xl">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setRating(star)}
+                      className={star <= rating ? "text-amber-400" : "text-neutral-600"}
+                    >
+                      ★
+                    </button>
+                  ))}
                 </div>
 
                 <div className="space-y-2 text-right">
@@ -408,11 +445,8 @@ export default function DashboardPage() {
                 </div>
 
                 <button
-                  onClick={() => {
-                    setIsBooking(false);
-                    setStep("main_map");
-                  }}
-                  className="w-full bg-[#EE6C20] hover:bg-[#d85e19] text-white font-bold py-3.5 rounded-2xl text-sm"
+                  onClick={handleCompleteRatingAndPayment}
+                  className="w-full bg-[#EE6C20] hover:bg-[#d85e19] text-white font-bold py-3.5 rounded-2xl text-sm transition-all"
                 >
                   إتمام والدفع 💳
                 </button>
@@ -478,12 +512,15 @@ export default function DashboardPage() {
                   </div>
                   <p className="text-sm font-bold">الموقع: {activeDriverRide?.pickup_location}</p>
                   <div className="grid grid-cols-2 gap-2 pt-2">
-                    <button className="bg-neutral-800 text-xs py-2.5 rounded-xl text-neutral-300 font-bold">
+                    <a
+                      href={`tel:${activeDriverRide?.passenger_phone || "0912345678"}`}
+                      className="bg-neutral-800 hover:bg-neutral-700 text-xs py-2.5 rounded-xl text-neutral-300 font-bold text-center block"
+                    >
                       📞 اتصال بالراكب
-                    </button>
+                    </a>
                     <button
                       onClick={() => updateDriverRideStatus("arrived", "on_trip")}
-                      className="bg-[#EE6C20] text-white font-bold text-xs py-2.5 rounded-xl"
+                      className="bg-[#EE6C20] hover:bg-[#d85e19] text-white font-bold text-xs py-2.5 rounded-xl"
                     >
                       وصلت للراكب 🛺
                     </button>
@@ -497,9 +534,9 @@ export default function DashboardPage() {
                   <p className="text-sm font-bold">الوجهة: {activeDriverRide?.destination}</p>
                   <button
                     onClick={() => updateDriverRideStatus("completed", "finished")}
-                    className="w-full bg-green-500 text-black font-bold py-3 rounded-xl text-xs"
+                    className="w-full bg-green-500 hover:bg-green-600 text-black font-bold py-3 rounded-xl text-xs transition-all shadow-lg shadow-green-500/20"
                   >
-                    إنهاء الرحلة وتحصيل ({activeDriverRide?.price} ج.س) 💰
+                    التوصيل واكتمال الرحلة وتحصيل ({activeDriverRide?.price} ج.س) 💰
                   </button>
                 </div>
               )}
