@@ -1,271 +1,216 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { 
-  Power, 
-  DollarSign, 
-  TrendingUp, 
-  CheckCircle, 
-  XCircle,
-  Clock,
-  User,
-  PhoneCall
-} from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 
-export default function DriverDashboardPage() {
-  const router = useRouter();
-  const [isOnline, setIsOnline] = useState(true);
-  const [incomingRide, setIncomingRide] = useState<any>(null);
-  const [acceptedRide, setAcceptedRide] = useState<any>(null);
+// 📍 تحميل الخريطة ديناميكياً مع إيقاف الـ SSR لتجنب مشاكل Prerender/Build
+const DynamicMap = dynamic(() => import("@/components/Map"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-full w-full bg-slate-900/50 animate-pulse flex items-center justify-center text-xs text-slate-500 rounded-2xl border border-slate-800">
+      جاري تحميل خريطة المشوار...
+    </div>
+  ),
+});
 
-  // 🔄 البحث عن طلبات جديدة كل 3 ثوانٍ
-  useEffect(() => {
-    if (!isOnline || acceptedRide) return;
+export default function DriverPage() {
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [pendingRides, setPendingRides] = useState<any[]>([]);
+  const [activeRide, setActiveRide] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
-    const fetchPendingRides = async () => {
-      try {
-        const res = await fetch("/api/rides");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.rides && data.rides.length > 0) {
-            setIncomingRide(data.rides[0]);
-          } else {
-            setIncomingRide(null);
+  // جلب الرحلات المتاحة بانتظام
+  const fetchRides = useCallback(async () => {
+    if (!isOnline) return;
+    try {
+      const res = await fetch("/api/rides");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.rides)) {
+          // فلترة الرحلات المعلقة والجديدة
+          setPendingRides(data.rides.filter((r: any) => r.status === "pending"));
+          
+          // التحقق من وجود رحلة مقبولة قيد التنفيذ حالياً
+          const current = data.rides.find((r: any) => r.status === "accepted");
+          if (current) {
+            setActiveRide(current);
           }
         }
-      } catch (err) {
-        console.error("خطأ في جلب الرحلات:", err);
       }
-    };
+    } catch (error) {
+      console.error("خطأ في جلب رحلات السائق:", error);
+    }
+  }, [isOnline]);
 
-    fetchPendingRides();
-    const interval = setInterval(fetchPendingRides, 3000);
+  useEffect(() => {
+    fetchRides();
+    const interval = setInterval(() => {
+      fetchRides();
+    }, 4000);
 
     return () => clearInterval(interval);
-  }, [isOnline, acceptedRide]);
+  }, [fetchRides]);
 
-  // قبول الرحلة
-  const handleAcceptRide = async () => {
-    if (!incomingRide) return;
-
+  // قبول طلب الرحلة
+  const handleAcceptRide = async (rideId: string) => {
+    setLoading(true);
     try {
       const res = await fetch("/api/rides", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rideId: incomingRide.id,
-          status: "accepted",
-        }),
+        body: JSON.stringify({ rideId, status: "accepted" }),
       });
-
       if (res.ok) {
-        setAcceptedRide(incomingRide);
-        setIncomingRide(null);
+        alert("تم قبول الرحلة! توجه لنقطة الانطلاق الآن.");
+        fetchRides();
       } else {
-        alert("حدث خطأ أثناء قبول الرحلة");
+        alert("عذراً، قد يكون تم قبول هذه الرحلة من سائق آخر.");
       }
-    } catch (err) {
-      console.error("خطأ في قبول الرحلة:", err);
+    } catch (error) {
+      console.error("خطأ في قبول الرحلة:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // إكمال الرحلة
-  const handleCompleteRide = async () => {
-    if (!acceptedRide) return;
-
+  // إنهاء الرحلة
+  const handleCompleteRide = async (rideId: string) => {
+    setLoading(true);
     try {
-      await fetch("/api/rides", {
+      const res = await fetch("/api/rides", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rideId: acceptedRide.id,
-          status: "completed",
-        }),
+        body: JSON.stringify({ rideId, status: "completed" }),
       });
-
-      alert("تم التوصيل بنجاح واستكمال الرحلة! 🚀");
-      setAcceptedRide(null);
-    } catch (err) {
-      console.error("خطأ في إنهاء الرحلة:", err);
+      if (res.ok) {
+        alert("تم إنهاء الرحلة بنجاح. تحصيل المبلغ من الراكب.");
+        setActiveRide(null);
+        fetchRides();
+      }
+    } catch (error) {
+      console.error("خطأ في إكمال الرحلة:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-[#121212] text-white flex flex-col justify-between overflow-x-hidden font-sans dir-rtl" dir="rtl">
-      
-      {/* 1. الشريط العلوي */}
-      <div className="fixed top-4 right-4 left-4 z-20 flex justify-between items-center bg-[#1E1E1E]/95 backdrop-blur-md p-3 rounded-2xl border border-gray-800 shadow-xl">
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => router.push("/")}
-            className="p-2 bg-gray-800 hover:bg-gray-700 text-xs rounded-xl font-bold"
-          >
-            ← راكب
-          </button>
-          <div>
-            <h2 className="text-sm font-bold text-white">الكابتن عثمان</h2>
-            <p className="text-[10px] text-gray-400">ركشة - خ 2 / 4589</p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => {
-            setIsOnline(!isOnline);
-            if (isOnline) setIncomingRide(null);
-          }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition duration-300 shadow-lg ${
-            isOnline 
-              ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" 
-              : "bg-red-500/20 text-red-400 border border-red-500/40"
-          }`}
-        >
-          <Power className="w-4 h-4" />
-          <span>{isOnline ? "متصل (جاهز)" : "غير متصل"}</span>
-        </button>
-      </div>
-
-      {/* 2. الأرباح */}
-      <div className="fixed top-24 right-4 left-4 z-10 grid grid-cols-2 gap-3">
-        <div className="bg-[#1E1E1E]/90 backdrop-blur-md border border-gray-800 p-3 rounded-2xl flex items-center gap-3">
-          <div className="p-2.5 bg-amber-500/10 text-amber-500 rounded-xl">
-            <DollarSign className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-400 font-medium">أرباح اليوم</p>
-            <p className="text-base font-extrabold text-amber-400">12,500 <span className="text-[10px]">ج.س</span></p>
-          </div>
-        </div>
-
-        <div className="bg-[#1E1E1E]/90 backdrop-blur-md border border-gray-800 p-3 rounded-2xl flex items-center gap-3">
-          <div className="p-2.5 bg-blue-500/10 text-blue-400 rounded-xl">
-            <TrendingUp className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-400 font-medium">الرحلات المكتملة</p>
-            <p className="text-base font-extrabold text-white">8 <span className="text-[10px]">رحلات</span></p>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. حالة الانتظار */}
-      <div className="fixed inset-0 z-0 bg-[#0c1017] flex items-center justify-center">
-        {!isOnline && (
-          <div className="bg-black/80 backdrop-blur-md px-6 py-3 rounded-full border border-gray-800 text-gray-400 text-sm font-medium z-10">
-            قم بتفعيل الحالة لتبدأ استقبال الطلبات ⚡
-          </div>
-        )}
-        {isOnline && !incomingRide && !acceptedRide && (
-          <div className="bg-black/80 backdrop-blur-md px-6 py-3 rounded-full border border-gray-800 text-amber-400 text-sm font-medium z-10 flex items-center gap-2">
-            <span className="w-2 h-2 bg-amber-500 rounded-full animate-ping"></span>
-            في انتظار طلبات جديدة...
-          </div>
-        )}
-      </div>
-
-      {/* 4. شاشة التوصيل (بعد القبول) */}
-      {acceptedRide && (
-        <div className="fixed bottom-0 inset-x-0 z-30 bg-[#1E1E1E] border-t-2 border-emerald-500 rounded-t-3xl p-5 pb-8 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
-          <div className="flex justify-between items-center border-b border-gray-800 pb-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
-              <h3 className="text-sm font-bold text-emerald-400">الرحلة الحالية جارية 🚀</h3>
-            </div>
-            <span className="text-xs text-gray-400 font-bold">1,500 ج.س</span>
-          </div>
-
-          <div className="bg-[#121212] p-4 rounded-2xl border border-gray-800 space-y-3 text-xs">
-            <div className="flex items-start gap-2">
-              <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full mt-1 shrink-0"></div>
-              <p className="text-gray-300"><span className="text-gray-500">من:</span> {acceptedRide.pickupLocation}</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <div className="w-2.5 h-2.5 bg-amber-500 rounded-sm mt-1 shrink-0"></div>
-              <p className="text-gray-300"><span className="text-gray-500">إلى:</span> {acceptedRide.destination}</p>
+    <main className="min-h-screen bg-[#0a0c10] text-white flex flex-col items-center justify-start p-4 font-sans" dir="rtl">
+      <div className="w-full max-w-md space-y-4">
+        
+        {/* شريط حالة السائق (متصل / غير متصل) */}
+        <div className="bg-[#12161f] border border-slate-800 p-4 rounded-3xl flex items-center justify-between shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className={`w-3.5 h-3.5 rounded-full ${isOnline ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+            <div>
+              <h1 className="text-sm font-black text-white">لوحة الكابتن 🛺</h1>
+              <p className="text-[11px] text-slate-400">
+                {isOnline ? "أنت متصل الآن لاستقبال الطلبات" : "أنت غير متصل"}
+              </p>
             </div>
           </div>
-
-          {/* رابط الاتصال بالراكب بدلاً من alert */}
-          <a
-            href={`tel:${acceptedRide.passengerPhone || "0912345678"}`}
-            className="w-full py-3 bg-[#2A323D] hover:bg-[#343E4C] text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 border border-gray-700 transition"
-          >
-            <PhoneCall className="w-4 h-4 text-emerald-400" />
-            اتصال بالراكب
-          </a>
-
           <button
-            onClick={handleCompleteRide}
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-black rounded-2xl font-black text-sm shadow-lg shadow-emerald-500/20"
+            onClick={() => setIsOnline(!isOnline)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow ${
+              isOnline
+                ? "bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20"
+                : "bg-emerald-500 text-white hover:bg-emerald-600"
+            }`}
           >
-            ✅ التوصيل واكتكمال الرحلة
+            {isOnline ? "إيقاف الاستقبال" : "تفعيل الاستقبال"}
           </button>
         </div>
-      )}
 
-      {/* 5. بطاقة الطلب الجديد */}
-      {isOnline && incomingRide && !acceptedRide && (
-        <div className="fixed bottom-0 inset-x-0 z-30 bg-[#1E1E1E] border-t-2 border-amber-500 rounded-t-3xl p-5 pb-10 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
-          
-          <div className="flex justify-between items-center border-b border-gray-800 pb-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 bg-amber-500 rounded-full animate-ping"></span>
-              <h3 className="text-sm font-bold text-amber-400">طلب رحلة جديد وصل!</h3>
+        {/* الرحلة الجارية حالياً إن وجدت */}
+        {activeRide && (
+          <div className="bg-[#12161f] border border-amber-500/40 p-5 rounded-3xl space-y-4 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 left-0 h-1 bg-amber-500 animate-pulse" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                رحلة جارية الآن 🚀
+              </span>
+              <span className="text-xs font-extrabold text-emerald-400">{activeRide.offeredPrice} ج.س</span>
             </div>
-            <span className="text-xs text-gray-400 flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" /> جديد
-            </span>
-          </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-gray-300 border border-gray-700">
-                <User className="w-5 h-5" />
+            <div className="h-44 rounded-2xl overflow-hidden border border-slate-800">
+              <DynamicMap center={[17.7022, 33.9822]} pickupName={activeRide.pickupLocation} />
+            </div>
+
+            <div className="bg-[#0a0c10] p-3.5 rounded-2xl border border-slate-800 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400">موقع الراكب:</span>
+                <span className="font-bold text-white">{activeRide.pickupLocation}</span>
               </div>
-              <div>
-                <h4 className="text-sm font-bold text-white">راكب جديد</h4>
-                <p className="text-xs text-gray-400">نوع المركبة: {incomingRide.serviceType || "ركشة"}</p>
+              <div className="flex justify-between">
+                <span className="text-slate-400">الوجهة:</span>
+                <span className="font-bold text-white">{activeRide.destination}</span>
               </div>
             </div>
-            <div className="text-left">
-              <p className="text-lg font-black text-amber-400">1,500 <span className="text-xs">ج.س</span></p>
-              <p className="text-[10px] text-emerald-400">كاش عند الوصول</p>
-            </div>
-          </div>
-
-          <div className="bg-[#121212] p-3 rounded-xl border border-gray-800/80 space-y-2 text-xs">
-            <div className="flex items-start gap-2">
-              <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full mt-1 shrink-0"></div>
-              <p className="text-gray-300 truncate"><span className="text-gray-500">من:</span> {incomingRide.pickupLocation}</p>
-            </div>
-            <div className="flex items-start gap-2">
-              <div className="w-2.5 h-2.5 bg-amber-500 rounded-sm mt-1 shrink-0"></div>
-              <p className="text-gray-300 truncate"><span className="text-gray-500">إلى:</span> {incomingRide.destination}</p>
-            </div>
-          </div>
-
-          {/* أزرار التجاهل والقبول */}
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <button
-              onClick={() => setIncomingRide(null)}
-              className="flex items-center justify-center gap-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 py-3.5 rounded-2xl font-bold text-sm transition active:scale-95"
-            >
-              <XCircle className="w-4 h-4" />
-              تجاهل
-            </button>
 
             <button
-              onClick={handleAcceptRide}
-              className="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-black py-3.5 rounded-2xl font-bold text-sm transition shadow-lg active:scale-95"
+              onClick={() => handleCompleteRide(activeRide.id)}
+              disabled={loading}
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl shadow-lg active:scale-95 transition-all text-xs disabled:opacity-50"
             >
-              <CheckCircle className="w-4 h-4" />
-              قبول الرحلة
+              {loading ? "جاري التحديث..." : "✅ تم الوصول وإكمال الرحلة"}
             </button>
           </div>
+        )}
 
-        </div>
-      )}
+        {/* قائمة الطلبات الجديدة المتاحة */}
+        {!activeRide && (
+          <div className="bg-[#12161f] border border-slate-800 p-5 rounded-3xl space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <h2 className="text-sm font-black text-white">الطلبات المتاحة القريبة</h2>
+              <span className="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full font-bold">
+                {pendingRides.length} طلبات
+              </span>
+            </div>
 
-    </div>
+            {!isOnline ? (
+              <div className="bg-[#0a0c10] border border-slate-800 rounded-2xl p-8 text-center space-y-2">
+                <p className="text-2xl">💤</p>
+                <p className="text-xs text-slate-400">قم بتفعيل الاستقبال لعرض الطلبات القريبة</p>
+              </div>
+            ) : pendingRides.length === 0 ? (
+              <div className="bg-[#0a0c10] border border-slate-800/80 rounded-2xl p-8 text-center space-y-2">
+                <p className="text-2xl">⏳</p>
+                <p className="text-xs text-slate-400">في انتظار طلبات رحلات جديدة...</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingRides.map((ride) => (
+                  <div key={ride.id} className="bg-[#0a0c10] border border-slate-800 p-4 rounded-2xl space-y-3 hover:border-slate-700 transition-all">
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center text-white">
+                        <span className="text-slate-400">من:</span>
+                        <span className="font-bold text-amber-400">{ride.pickupLocation}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-white">
+                        <span className="text-slate-400">إلى:</span>
+                        <span className="font-bold">{ride.destination}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-emerald-400 font-extrabold pt-1 border-t border-slate-800/50">
+                        <span>المبلغ المستحق:</span>
+                        <span className="text-sm">{ride.offeredPrice} ج.س</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleAcceptRide(ride.id)}
+                      disabled={loading}
+                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-extrabold rounded-xl text-xs active:scale-95 transition-all shadow-md disabled:opacity-50"
+                    >
+                      {loading ? "جاري القبول..." : "قبول الطلب والتحرك 🛺"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+    </main>
   );
 }
