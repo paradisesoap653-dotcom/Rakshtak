@@ -1,7 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Map from "@/components/Map";
+import dynamic from "next/dynamic";
+
+// 📍 تحميل الخريطة ديناميكياً مع إيقاف الـ SSR لتجنب مشاكل البناء
+const DynamicMap = dynamic(() => import("@/components/Map"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-full w-full bg-slate-900 animate-pulse flex items-center justify-center text-xs text-slate-500">
+      جاري تحميل الخريطة...
+    </div>
+  ),
+});
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"passenger" | "driver">("passenger");
@@ -45,7 +55,6 @@ export default function HomePage() {
     };
   }, []);
 
-  // تنفيذ تثبيت التطبيق عند الضغط على الزر
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
@@ -56,7 +65,6 @@ export default function HomePage() {
     setDeferredPrompt(null);
   };
 
-  // دالة جلب البيانات الآمنة بدون تكرار
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch("/api/rides");
@@ -71,7 +79,6 @@ export default function HomePage() {
     }
   }, []);
 
-  // جلب البيانات بشكل دوري في المتصفح فقط
   useEffect(() => {
     fetchData();
     const interval = setInterval(() => {
@@ -242,7 +249,7 @@ export default function HomePage() {
                 <h3 className="text-base font-bold text-amber-400 text-center">الرحلة جارية حالياً 🚀</h3>
                 
                 <div className="h-44 rounded-2xl overflow-hidden border border-slate-800">
-                  <Map center={[17.7022, 33.9822]} pickupName={activeRide.pickupLocation} />
+                  <DynamicMap center={[17.7022, 33.9822]} pickupName={activeRide.pickupLocation} />
                 </div>
 
                 <div className="bg-[#0a0c10] p-4 rounded-2xl border border-slate-800/80 space-y-2 text-xs">
@@ -275,7 +282,7 @@ export default function HomePage() {
                 </div>
 
                 <div className="h-48 rounded-2xl overflow-hidden border border-slate-800">
-                  <Map center={[17.7022, 33.9822]} pickupName={pickup || "عطبرة"} />
+                  <DynamicMap center={[17.7022, 33.9822]} pickupName={pickup || "عطبرة"} />
                 </div>
 
                 <div className="space-y-3">
