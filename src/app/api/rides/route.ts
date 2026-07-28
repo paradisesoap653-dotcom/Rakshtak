@@ -1,65 +1,43 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase"; // أعد ضبط مسار supabase حسب مشروعك
 
-// دالة مساعدة لإنشاء العميل داخل الدوال فقط لمنع الخطأ أثناء الـ Build
-function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-key";
-
-  return createClient(supabaseUrl, supabaseAnonKey);
-}
-
-// 📩 1. جلب الطلبات (GET)
 export async function GET() {
   try {
-    const supabase = getSupabaseClient();
-
     const { data, error } = await supabase
       .from("rides")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Supabase GET Error:", error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ success: true, rides: data || [] });
+    if (error) throw error;
+    return NextResponse.json({ rides: data });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-// 🚀 2. إنشاء طلب رحلة جديد (POST)
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
-    const { serviceType, pickupLocation, destination, offeredPrice } = body;
-
-    if (!pickupLocation || !destination) {
-      return NextResponse.json({ success: false, error: "Missing fields" }, { status: 400 });
-    }
-
-    const supabase = getSupabaseClient();
+    const body = await req.json();
+    
+    // توحيد اسم الهاتف القادم من الواجهة
+    const phone = body.passengerPhone || body.passenger_phone || body.phone || "";
 
     const { data, error } = await supabase
       .from("rides")
       .insert([
         {
-          service_type: serviceType || "raksha",
-          pickup_location: pickupLocation,
-          destination: destination,
-          offered_price: offeredPrice || 1500,
+          service_type: body.serviceType || body.service_type || "raksha",
+          pickup_location: body.pickupLocation || body.pickup_location,
+          destination: body.destination,
+          offered_price: body.offeredPrice || body.offered_price,
+          passenger_phone: phone, // تأكد أن العمود في Supabase هو passenger_phone أو phone
           status: "pending",
         },
       ])
       .select()
       .single();
 
-    if (error) {
-      console.error("Supabase POST Error:", error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
-    }
+    if (error) throw error;
 
     return NextResponse.json({ success: true, ride: data });
   } catch (err: any) {
@@ -67,24 +45,24 @@ export async function POST(request: Request) {
   }
 }
 
-// 🔄 3. تحديث حالة الرحلة (PATCH)
-export async function PATCH(request: Request) {
+export async function PATCH(req: Request) {
   try {
-    const body = await request.json();
-    const { rideId, status } = body;
+    const body = await req.json();
+    const { rideId, status, driverPhone } = body;
 
-    const supabase = getSupabaseClient();
+    const updateData: any = { status };
+    if (driverPhone) {
+      updateData.driver_phone = driverPhone;
+    }
 
     const { data, error } = await supabase
       .from("rides")
-      .update({ status })
+      .update(updateData)
       .eq("id", rideId)
       .select()
       .single();
 
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
-    }
+    if (error) throw error;
 
     return NextResponse.json({ success: true, ride: data });
   } catch (err: any) {
