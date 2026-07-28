@@ -18,6 +18,7 @@ export default function HomePage() {
   const [selectedVehicle, setSelectedVehicle] = useState<string>("raksha");
   const [pickup, setPickup] = useState<string>("");
   const [destination, setDestination] = useState<string>("");
+  const [phoneNumber, setPhoneNumber] = useState<string>(""); // 📞 رقم الهاتف
   const [offeredPrice, setOfferedPrice] = useState<number>(1500);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -63,7 +64,7 @@ export default function HomePage() {
       osc1.start();
       osc1.stop(audioCtx.currentTime + 0.3);
 
-      // النغمة الثانية بعد فترة قصيرة (تنبيه مزدوج)
+      // النغمة الثانية بعد فترة قصيرة
       setTimeout(() => {
         const osc2 = audioCtx.createOscillator();
         const gain2 = audioCtx.createGain();
@@ -137,10 +138,10 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // إنشاء طلب جديد ورؤية الخطأ بدقة إذا فشل
+  // إنشاء طلب جديد
   const handleCreateRide = async () => {
-    if (!pickup || !destination) {
-      alert("الرجاء إدخال نقطة الانطلاق والوجهة");
+    if (!pickup || !destination || !phoneNumber) {
+      alert("الرجاء إدخال نقطة الانطلاق والوجهة ورقم الهاتف");
       return;
     }
 
@@ -154,6 +155,7 @@ export default function HomePage() {
           pickupLocation: pickup,
           destination: destination,
           offeredPrice: offeredPrice,
+          passengerPhone: phoneNumber, // إرسال الرقم مع الطلب
         }),
       });
 
@@ -211,6 +213,7 @@ export default function HomePage() {
     setActiveRide(null);
     setPickup("");
     setDestination("");
+    setPhoneNumber("");
   };
 
   return (
@@ -322,6 +325,14 @@ export default function HomePage() {
                   </div>
                 </div>
 
+                {/* 📞 زر الاتصال بالسائق */}
+                <a
+                  href={`tel:${activeRide.driverPhone || "0912345678"}`}
+                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-2xl shadow-lg active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
+                >
+                  <span>📞</span> الاتصال بالسائق
+                </a>
+
                 <button
                   onClick={handleCompleteRide}
                   className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl shadow-lg active:scale-95 transition-all text-sm"
@@ -358,6 +369,16 @@ export default function HomePage() {
                       value={destination}
                       onChange={(e) => setDestination(e.target.value)}
                       placeholder="مثال: بربر"
+                      className="w-full bg-[#0a0c10] border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">رقم الهاتف للتواصل</label>
+                    <input
+                      type="tel"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="مثال: 0912345678"
                       className="w-full bg-[#0a0c10] border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
                     />
                   </div>
@@ -428,12 +449,22 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleAcceptRide(ride.id)}
-                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs active:scale-95 transition-all shadow-md"
-                    >
-                      قبول الطلب ✅
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* 📞 زر الاتصال بالراكب للسائق */}
+                      <a
+                        href={`tel:${ride.passengerPhone || ride.passenger_phone || "0912345678"}`}
+                        className="py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all"
+                      >
+                        <span>📞</span> اتصال
+                      </a>
+
+                      <button
+                        onClick={() => handleAcceptRide(ride.id)}
+                        className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs active:scale-95 transition-all shadow-md"
+                      >
+                        قبول الطلب ✅
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
