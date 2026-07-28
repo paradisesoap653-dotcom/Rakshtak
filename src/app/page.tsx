@@ -18,9 +18,13 @@ export default function HomePage() {
   const [selectedVehicle, setSelectedVehicle] = useState<string>("raksha");
   const [pickup, setPickup] = useState<string>("");
   const [destination, setDestination] = useState<string>("");
-  const [phoneNumber, setPhoneNumber] = useState<string>(""); // 📞 رقم الهاتف الحقيقي
   const [offeredPrice, setOfferedPrice] = useState<number>(1500);
   const [loading, setLoading] = useState<boolean>(false);
+
+  // 🔑 إدارة تسجيل الدخول ورقم الهاتف
+  const [userPhone, setUserPhone] = useState<string>("");
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [phoneInput, setPhoneInput] = useState<string>("");
 
   // إدارة زر التثبيت PWA
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -44,12 +48,39 @@ export default function HomePage() {
     { id: "taxi", name: "تكسي", price: 3500, icon: "🚕" },
   ];
 
+  // 🔄 فحص وجود رقم هاتف محفوض سابقاً في الجهاز
+  useEffect(() => {
+    const savedPhone = localStorage.getItem("rakshatak_user_phone");
+    if (savedPhone) {
+      setUserPhone(savedPhone);
+      setIsLoggedIn(true);
+    }
+  }, []);
+
+  // 🔐 دالة تسجيل الدخول وحفظ الرقم
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phoneInput || phoneInput.length < 9) {
+      alert("الرجاء إدخال رقم هاتف صحيح");
+      return;
+    }
+    localStorage.setItem("rakshatak_user_phone", phoneInput);
+    setUserPhone(phoneInput);
+    setIsLoggedIn(true);
+  };
+
+  // 🚪 تسجيل الخروج / تغيير الرقم
+  const handleLogout = () => {
+    localStorage.removeItem("rakshatak_user_phone");
+    setUserPhone("");
+    setIsLoggedIn(false);
+  };
+
   // 🔔 دالة تشغيل جرس التنبيه للسائق
   const playNotificationSound = () => {
     try {
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContext) return;
-      
       const audioCtx = new AudioContext();
 
       const osc1 = audioCtx.createOscillator();
@@ -62,19 +93,6 @@ export default function HomePage() {
       gain1.connect(audioCtx.destination);
       osc1.start();
       osc1.stop(audioCtx.currentTime + 0.3);
-
-      setTimeout(() => {
-        const osc2 = audioCtx.createOscillator();
-        const gain2 = audioCtx.createGain();
-        osc2.type = "sine";
-        osc2.frequency.setValueAtTime(880, audioCtx.currentTime);
-        gain2.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-        osc2.connect(gain2);
-        gain2.connect(audioCtx.destination);
-        osc2.start();
-        osc2.stop(audioCtx.currentTime + 0.4);
-      }, 150);
     } catch (err) {
       console.log("Audio play error:", err);
     }
@@ -88,19 +106,14 @@ export default function HomePage() {
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-    };
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
   }, []);
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === "accepted") {
-      setShowInstallBtn(false);
-    }
+    if (outcome === "accepted") setShowInstallBtn(false);
     setDeferredPrompt(null);
   };
 
@@ -111,12 +124,10 @@ export default function HomePage() {
         const data = await res.json();
         if (Array.isArray(data.rides)) {
           const filtered = data.rides.filter((r: any) => r.status === "pending");
-          
           if (filtered.length > previousRidesCount.current) {
             playNotificationSound();
           }
           previousRidesCount.current = filtered.length;
-          
           setPendingRides(filtered);
         }
       }
@@ -127,17 +138,14 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(() => {
-      fetchData();
-    }, 5000);
-
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // إنشاء طلب جديد مع ربط الهاتف الحقيقي
+  // إنشاء طلب جديد برقم المستخدم المحفوظ
   const handleCreateRide = async () => {
-    if (!pickup || !destination || !phoneNumber) {
-      alert("الرجاء إدخال نقطة الانطلاق والوجهة ورقم الهاتف");
+    if (!pickup || !destination) {
+      alert("الرجاء إدخال نقطة الانطلاق والوجهة");
       return;
     }
 
@@ -151,25 +159,23 @@ export default function HomePage() {
           pickupLocation: pickup,
           destination: destination,
           offeredPrice: offeredPrice,
-          passengerPhone: phoneNumber, // إرسال رقم الراكب المدخل
-          passenger_phone: phoneNumber,
+          passengerPhone: userPhone, // إرسال رقم الهاتف المحفوظ تلقائياً
+          passenger_phone: userPhone,
         }),
       });
 
       const data = await res.json();
       if (data.success) {
-        // التأكد من توفر الرقم في كائن activeRide
         const rideData = data.ride || {};
         setActiveRide({
           ...rideData,
-          passengerPhone: phoneNumber,
-          passenger_phone: phoneNumber,
+          passengerPhone: userPhone,
+          passenger_phone: userPhone,
         });
       } else {
-        alert(`فشل الإرسال: ${data.error || "خطأ غير معروف في السيرفر"}`);
+        alert(`فشل الإرسال: ${data.error || "خطأ غير معروف"}`);
       }
     } catch (error: any) {
-      console.error("Error creating ride:", error);
       alert(`خطأ في الاتصال: ${error.message}`);
     } finally {
       setLoading(false);
@@ -181,23 +187,24 @@ export default function HomePage() {
       const res = await fetch("/api/rides", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rideId: ride.id, status: "accepted" }),
+        body: JSON.stringify({
+          rideId: ride.id,
+          status: "accepted",
+          driverPhone: userPhone, // إرسال رقم السائق المحفوظ
+        }),
       });
       const data = await res.json();
       if (data.success) {
         alert("تم قبول الرحلة بنجاح!");
-        // حفظ بيانات الرحلة المقبولة وتمرير رقم الراكب
         setActiveRide({
           ...(data.ride || ride),
-          passengerPhone: ride.passengerPhone || ride.passenger_phone || phoneNumber,
-          passenger_phone: ride.passengerPhone || ride.passenger_phone || phoneNumber,
+          passengerPhone: ride.passengerPhone || ride.passenger_phone,
         });
         fetchData();
       } else {
         alert(`تعذر قبول الطلب: ${data.error}`);
       }
     } catch (error: any) {
-      console.error("Error accepting ride:", error);
       alert(`خطأ في الاتصال: ${error.message}`);
     }
   };
@@ -222,25 +229,61 @@ export default function HomePage() {
     setActiveRide(null);
     setPickup("");
     setDestination("");
-    setPhoneNumber("");
   };
 
-  // استخراج رقم هاتف الراكب الحقيقي
+  // استخراج الأرقام بأمان
   const getPassengerPhone = (rideObj: any) => {
-    if (!rideObj) return phoneNumber;
-    return rideObj.passengerPhone || rideObj.passenger_phone || rideObj.phone || phoneNumber;
+    if (!rideObj) return "";
+    return rideObj.passengerPhone || rideObj.passenger_phone || rideObj.phone || "";
   };
 
-  // استخراج رقم هاتف السائق الحقيقي
   const getDriverPhone = (rideObj: any) => {
     if (!rideObj) return "";
-    return rideObj.driverPhone || rideObj.driver_phone || rideObj.driverPhoneNum || "";
+    return rideObj.driverPhone || rideObj.driver_phone || "";
   };
+
+  // 📱 شاشة تسجيل الدخول إذا لم يكن المستخدم قد أدخل رقمه بعد
+  if (!isLoggedIn) {
+    return (
+      <main className="min-h-screen bg-[#0a0c10] text-white flex flex-col items-center justify-center p-4 font-sans" dir="rtl">
+        <div className="w-full max-w-md bg-[#12161f] border border-slate-800 p-6 rounded-3xl space-y-6 text-center shadow-2xl">
+          <div className="w-20 h-20 bg-amber-500/10 border border-amber-500/30 rounded-3xl flex items-center justify-center mx-auto text-4xl">
+            🛺
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-2xl font-black text-white">مرحباً بك في ركشتك</h1>
+            <p className="text-xs text-slate-400">أدخل رقم هاتفك للبدء واستخدام التطبيق</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <input
+                type="tel"
+                required
+                value={phoneInput}
+                onChange={(e) => setPhoneInput(e.target.value)}
+                placeholder="مثال: 0912345678"
+                className="w-full bg-[#0a0c10] border border-slate-800 rounded-2xl p-4 text-center text-lg font-bold text-amber-400 placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-all"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-2xl shadow-lg active:scale-95 transition-all text-sm"
+            >
+              دخول واستمرار 🚀
+            </button>
+          </form>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#0a0c10] text-white flex flex-col items-center justify-start p-4 font-sans" dir="rtl">
       
-      {/* 📲 شريط زر التثبيت PWA */}
+      {/* 📲 شريط PWA */}
       {showInstallBtn && (
         <div className="w-full max-w-md bg-gradient-to-r from-amber-500 to-orange-500 p-3 rounded-2xl mb-4 flex items-center justify-between shadow-lg text-white">
           <div className="flex items-center gap-2">
@@ -250,23 +293,30 @@ export default function HomePage() {
               <p className="text-[10px] opacity-90">وصول أسرع بدون متصفح</p>
             </div>
           </div>
-          <button
-            onClick={handleInstallClick}
-            className="bg-black/80 hover:bg-black text-white text-xs font-black px-4 py-2 rounded-xl transition-all shadow active:scale-95"
-          >
-            تثبيت الآن
+          <button onClick={handleInstallClick} className="bg-black/80 text-white text-xs font-black px-4 py-2 rounded-xl">
+            تثبيت
           </button>
         </div>
       )}
+
+      {/* 👤 شريط حساب المستخدم المسجل */}
+      <div className="w-full max-w-md bg-[#12161f] border border-slate-800/80 px-4 py-2.5 rounded-2xl mb-4 flex items-center justify-between text-xs">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="text-slate-400">حسابك:</span>
+          <span className="font-bold text-amber-400" dir="ltr">{userPhone}</span>
+        </div>
+        <button onClick={handleLogout} className="text-[10px] text-slate-500 hover:text-red-400 underline">
+          تغيير الرقم
+        </button>
+      </div>
 
       {/* شريط التبديل بين الراكب والسائق */}
       <div className="w-full max-w-md bg-[#12161f] p-1.5 rounded-2xl flex border border-slate-800/80 mb-6 shadow-lg">
         <button
           onClick={() => setActiveTab("passenger")}
           className={`flex-1 py-3 text-sm font-extrabold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 ${
-            activeTab === "passenger"
-              ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md"
-              : "text-slate-400 hover:text-white"
+            activeTab === "passenger" ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md" : "text-slate-400"
           }`}
         >
           <span>🙋‍♂️</span> راكب
@@ -274,9 +324,7 @@ export default function HomePage() {
         <button
           onClick={() => setActiveTab("driver")}
           className={`flex-1 py-3 text-sm font-extrabold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 ${
-            activeTab === "driver"
-              ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md"
-              : "text-slate-400 hover:text-white"
+            activeTab === "driver" ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md" : "text-slate-400"
           }`}
         >
           <span>🛺</span> سائق
@@ -289,37 +337,15 @@ export default function HomePage() {
           <>
             {showRating ? (
               <div className="bg-[#12161f] border border-slate-800 p-6 rounded-3xl text-center space-y-5 shadow-2xl">
-                <div className="w-16 h-16 bg-slate-800/80 rounded-full flex items-center justify-center mx-auto text-2xl border border-slate-700">
-                  🏁
-                </div>
-                <div>
-                  <h3 className="text-xl font-black text-white">وصلت بسلامة الله!</h3>
-                  <p className="text-xs text-slate-400 mt-1">كيف كانت تجربتك مع الكابتن؟</p>
-                </div>
-
+                <h3 className="text-xl font-black text-white">وصلت بسلامة الله!</h3>
                 <div className="flex justify-center gap-2 py-2">
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onClick={() => setRating(star)}
-                      className={`text-2xl transition-transform ${star <= rating ? "text-amber-400 scale-110" : "text-slate-600"}`}
-                    >
+                    <button key={star} onClick={() => setRating(star)} className={`text-2xl ${star <= rating ? "text-amber-400" : "text-slate-600"}`}>
                       ★
                     </button>
                   ))}
                 </div>
-
-                <textarea
-                  value={reviewText}
-                  onChange={(e) => setReviewText(e.target.value)}
-                  placeholder="اكتب ملاحظاتك..."
-                  className="w-full bg-[#0a0c10] border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 resize-none h-20"
-                />
-
-                <button
-                  onClick={handleSubmitRating}
-                  className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-extrabold rounded-2xl shadow-lg active:scale-95 transition-all text-sm"
-                >
+                <button onClick={handleSubmitRating} className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-extrabold rounded-2xl">
                   إرسال التقييم
                 </button>
               </div>
@@ -346,11 +372,10 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* 📞 زر الاتصال بالسائق */}
                 {getDriverPhone(activeRide) ? (
                   <a
                     href={`tel:${getDriverPhone(activeRide)}`}
-                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-2xl shadow-lg active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
+                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-2xl shadow-lg flex items-center justify-center gap-2 text-sm"
                   >
                     <span>📞</span> الاتصال بالسائق ({getDriverPhone(activeRide)})
                   </a>
@@ -360,10 +385,7 @@ export default function HomePage() {
                   </div>
                 )}
 
-                <button
-                  onClick={handleCompleteRide}
-                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl shadow-lg active:scale-95 transition-all text-sm"
-                >
+                <button onClick={handleCompleteRide} className="w-full py-3.5 bg-emerald-600 text-white font-extrabold rounded-2xl text-sm">
                   ✅ التوصيل واكتمال الرحلة
                 </button>
               </div>
@@ -399,16 +421,6 @@ export default function HomePage() {
                       className="w-full bg-[#0a0c10] border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">رقم الهاتف للتواصل</label>
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="أدخل رقم هاتفك الحقيقي"
-                      className="w-full bg-[#0a0c10] border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 pt-1">
@@ -420,9 +432,7 @@ export default function HomePage() {
                         setOfferedPrice(v.price);
                       }}
                       className={`p-3 rounded-2xl border text-center transition-all ${
-                        selectedVehicle === v.id
-                          ? "bg-amber-500/10 border-amber-500 text-white"
-                          : "bg-[#0a0c10] border-slate-800 text-slate-400 hover:border-slate-700"
+                        selectedVehicle === v.id ? "bg-amber-500/10 border-amber-500 text-white" : "bg-[#0a0c10] border-slate-800 text-slate-400"
                       }`}
                     >
                       <div className="text-xl mb-1">{v.icon}</div>
@@ -435,7 +445,7 @@ export default function HomePage() {
                 <button
                   onClick={handleCreateRide}
                   disabled={loading}
-                  className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-extrabold rounded-2xl shadow-lg active:scale-95 transition-all text-sm disabled:opacity-50 mt-2"
+                  className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-extrabold rounded-2xl shadow-lg text-sm mt-2"
                 >
                   {loading ? "جاري الإرسال..." : "🚀 تأكيد وطلب الرحلة"}
                 </button>
@@ -470,22 +480,18 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* 📞 زر الاتصال بالراكب */}
                 {getPassengerPhone(activeRide) ? (
                   <a
                     href={`tel:${getPassengerPhone(activeRide)}`}
-                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-2xl shadow-lg active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
+                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-2xl shadow-lg flex items-center justify-center gap-2 text-sm"
                   >
                     <span>📞</span> الاتصال بالراكب ({getPassengerPhone(activeRide)})
                   </a>
                 ) : (
-                  <div className="text-center text-xs text-red-400 py-2">لم يقم الراكب بإدخال رقم الهاتف</div>
+                  <div className="text-center text-xs text-red-400 py-2">لا يوجد رقم هاتف للراكب</div>
                 )}
 
-                <button
-                  onClick={handleCompleteRide}
-                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl shadow-lg active:scale-95 transition-all text-sm"
-                >
+                <button onClick={handleCompleteRide} className="w-full py-3.5 bg-emerald-600 text-white font-extrabold rounded-2xl text-sm">
                   ✅ إنهاء المشوار والتوصيل
                 </button>
               </div>
@@ -526,7 +532,7 @@ export default function HomePage() {
                             {pPhone ? (
                               <a
                                 href={`tel:${pPhone}`}
-                                className="py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all"
+                                className="py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-1"
                               >
                                 <span>📞</span> اتصال ({pPhone})
                               </a>
@@ -538,7 +544,7 @@ export default function HomePage() {
 
                             <button
                               onClick={() => handleAcceptRide(ride)}
-                              className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs active:scale-95 transition-all shadow-md"
+                              className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs shadow-md"
                             >
                               قبول الطلب ✅
                             </button>
