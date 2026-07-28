@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 
 // 📍 تحميل الخريطة ديناميكياً مع إيقاف الـ SSR لتجنب مشاكل البناء
@@ -29,6 +29,9 @@ export default function HomePage() {
   const [activeRide, setActiveRide] = useState<any>(null);
   const [pendingRides, setPendingRides] = useState<any[]>([]);
 
+  // مرجع لتتبع عدد الطلبات السابقة لتحديد وجود طلب جديد
+  const previousRidesCount = useRef<number>(0);
+
   // حالة التقييم
   const [showRating, setShowRating] = useState<boolean>(false);
   const [rating, setRating] = useState<number>(5);
@@ -39,6 +42,44 @@ export default function HomePage() {
     { id: "tuk_tuk", name: "توك توك", price: 2500, icon: "🛺" },
     { id: "taxi", name: "تكسي", price: 3500, icon: "🚕" },
   ];
+
+  // 🔔 دالة تشغيل جرس التنبيه للسائق
+  const playNotificationSound = () => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      
+      const audioCtx = new AudioContext();
+
+      // النغمة الأولى
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+      gain1.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start();
+      osc1.stop(audioCtx.currentTime + 0.3);
+
+      // النغمة الثانية بعد فترة قصيرة (تنبيه مزدوج)
+      setTimeout(() => {
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+        gain2.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start();
+        osc2.stop(audioCtx.currentTime + 0.4);
+      }, 150);
+    } catch (err) {
+      console.log("Audio play error:", err);
+    }
+  };
 
   // التقاط حدث التثبيت للـ PWA
   useEffect(() => {
@@ -71,7 +112,15 @@ export default function HomePage() {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.rides)) {
-          setPendingRides(data.rides.filter((r: any) => r.status === "pending"));
+          const filtered = data.rides.filter((r: any) => r.status === "pending");
+          
+          // 🔔 التنبيه بالصوت إذا وصل طلب جديد وكان السائق متواجد بالواجهة
+          if (filtered.length > previousRidesCount.current) {
+            playNotificationSound();
+          }
+          previousRidesCount.current = filtered.length;
+          
+          setPendingRides(filtered);
         }
       }
     } catch (error) {
