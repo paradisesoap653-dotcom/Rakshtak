@@ -24,8 +24,9 @@ export default function HomePage() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [phoneInput, setPhoneInput] = useState<string>("");
 
-  // الصوت
+  // الصوت والإشعارات المرئية
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // الرحلات
   const [activeRide, setActiveRide] = useState<any>(null);
@@ -34,6 +35,14 @@ export default function HomePage() {
 
   // التقييم
   const [showRating, setShowRating] = useState<boolean>(false);
+
+  // إظهار إشعار مؤقت للمستخدم
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  };
 
   // تهيئة الصوت ورقم الهاتف المحفوظ
   useEffect(() => {
@@ -57,7 +66,7 @@ export default function HomePage() {
     return () => window.removeEventListener("click", initAudio);
   }, []);
 
-  // تشغيل الصوت
+  // تشغيل تنبيه صوتي أقوى وأوضح
   const playNotificationSound = () => {
     try {
       if (!audioCtxRef.current) {
@@ -68,17 +77,23 @@ export default function HomePage() {
       if (!ctx) return;
       if (ctx.state === "suspended") ctx.resume();
 
+      // نغمتين متتاليتين لتنبيه أقوى
+      const now = ctx.currentTime;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      gain.gain.setValueAtTime(0.4, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(587.33, now); // D5
+      osc.frequency.setValueAtTime(880, now + 0.15); // A5
+
+      gain.gain.setValueAtTime(0.6, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.5);
+      
+      osc.start(now);
+      osc.stop(now + 0.4);
     } catch (err) {
       console.log("Audio Error:", err);
     }
@@ -93,6 +108,7 @@ export default function HomePage() {
     localStorage.setItem("rakshatak_user_phone", phoneInput);
     setUserPhone(phoneInput);
     setIsLoggedIn(true);
+    showToast("تم تسجيل الدخول بنجاح 🎉");
   };
 
   const handleLogout = () => {
@@ -102,7 +118,7 @@ export default function HomePage() {
     setActiveRide(null);
   };
 
-  // المزامنة الدورية للرحلات (للسائق وللراكب)
+  // المزامنة الدورية للرحلات
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch("/api/rides");
@@ -115,11 +131,12 @@ export default function HomePage() {
           const pending = allRides.filter((r: any) => r.status === "pending");
           if (pending.length > previousRidesCount.current) {
             playNotificationSound();
+            showToast("🛺 وصل طلب رحلة جديد متاح الآن!");
           }
           previousRidesCount.current = pending.length;
           setPendingRides(pending);
 
-          // 2. تحديث حالة الرحلة للراكب أو السائق في الوقت الفعلي
+          // 2. تحديث حالة الرحلة للراكب أو السائق
           if (userPhone) {
             const currentActive = allRides.find(
               (r: any) =>
@@ -131,9 +148,13 @@ export default function HomePage() {
             );
 
             if (currentActive) {
+              // إذا تغيرت حالة الطلب من منتظر إلى مقبول وأنا راكب
+              if (activeRide && activeRide.status === "pending" && currentActive.status === "accepted") {
+                playNotificationSound();
+                showToast("🚀 تم قبول طلبك من قِبل السائق!");
+              }
               setActiveRide(currentActive);
             } else if (activeRide && activeRide.status !== "completed") {
-              // إذا انتهت أو أُلغيت
               setActiveRide(null);
             }
           }
@@ -146,11 +167,10 @@ export default function HomePage() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 3000); // تحديث كل 3 ثوانٍ
+    const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // إنشـاء الطلب من الراكب
   const handleCreateRide = async () => {
     if (!pickup || !destination) {
       alert("الرجاء إدخال نقطة الانطلاق والوجهة");
@@ -175,6 +195,7 @@ export default function HomePage() {
       const data = await res.json();
       if (data.success) {
         setActiveRide(data.ride);
+        showToast("🚀 تم إرسال طلبك بنجاح، جاري البحث عن سائق...");
         fetchData();
       } else {
         alert(`فشل الإرسال: ${data.error || "خطأ في السيرفر"}`);
@@ -186,7 +207,6 @@ export default function HomePage() {
     }
   };
 
-  // قبول الطلب من السائق
   const handleAcceptRide = async (ride: any) => {
     try {
       const res = await fetch("/api/rides", {
@@ -201,6 +221,7 @@ export default function HomePage() {
       const data = await res.json();
       if (data.success) {
         setActiveRide(data.ride);
+        showToast("✅ تم قبول الطلب بنجاح، توجه إلى الراكب!");
         fetchData();
       } else {
         alert(`تعذر قبول الطلب: ${data.error}`);
@@ -219,6 +240,7 @@ export default function HomePage() {
         body: JSON.stringify({ rideId: activeRide.id, status: "completed" }),
       });
       setShowRating(true);
+      showToast("⭐ انتهت الرحلة بسلامة الله");
     } catch (error) {
       console.error("Error completing ride:", error);
     }
@@ -274,7 +296,15 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0a0c10] text-white flex flex-col items-center justify-start p-4 font-sans" dir="rtl">
+    <main className="min-h-screen bg-[#0a0c10] text-white flex flex-col items-center justify-start p-4 font-sans relative" dir="rtl">
+      {/* إشعار منبثق مرئي (Toast Notification) */}
+      {toastMessage && (
+        <div className="fixed top-4 z-50 bg-amber-500 text-slate-950 px-5 py-3 rounded-2xl shadow-2xl font-black text-xs animate-bounce flex items-center gap-2 border-2 border-white/20">
+          <span>🔔</span>
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* شريط حساب المستخدم */}
       <div className="w-full max-w-md bg-[#12161f] border border-slate-800/80 px-4 py-2.5 rounded-2xl mb-4 flex items-center justify-between text-xs">
         <div className="flex items-center gap-2">
@@ -355,7 +385,7 @@ export default function HomePage() {
                   </a>
                 ) : (
                   <div className="text-center text-xs text-amber-400 py-3 bg-amber-500/10 rounded-2xl border border-amber-500/20">
-                    ⏳ بانتظار قبول أي سائق للرحلة لظهر رقمه هنا...
+                    ⏳ بانتظار قبول أي سائق للرحلة ليظهر رقمه هنا...
                   </div>
                 )}
 
