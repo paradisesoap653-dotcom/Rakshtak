@@ -44,7 +44,7 @@ export default function HomePage() {
     { id: "taxi", name: "تكسي", price: 3500, icon: "🚕" },
   ];
 
-  // 🔔 دالة تشغيل جرس التنبيه للسائق
+  // 🔔 دالة تشغيل جرس التنبيه للسائق عند وصول طلب جديد
   const playNotificationSound = () => {
     try {
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
@@ -155,7 +155,7 @@ export default function HomePage() {
           pickupLocation: pickup,
           destination: destination,
           offeredPrice: offeredPrice,
-          passengerPhone: phoneNumber, // إرسال الرقم مع الطلب
+          passengerPhone: phoneNumber, // إرسال رقم هاتف الراكب
         }),
       });
 
@@ -183,6 +183,9 @@ export default function HomePage() {
       const data = await res.json();
       if (data.success) {
         alert("تم قبول الرحلة بنجاح!");
+        if (data.ride) {
+          setActiveRide(data.ride);
+        }
         fetchData();
       } else {
         alert(`تعذر قبول الطلب: ${data.error}`);
@@ -327,7 +330,7 @@ export default function HomePage() {
 
                 {/* 📞 زر الاتصال بالسائق */}
                 <a
-                  href={`tel:${activeRide.driverPhone || "0912345678"}`}
+                  href={`tel:${activeRide.driverPhone || activeRide.driver_phone || "0912345678"}`}
                   className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-2xl shadow-lg active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
                 >
                   <span>📞</span> الاتصال بالسائق
@@ -420,54 +423,95 @@ export default function HomePage() {
         {/* واجهة السائق */}
         {activeTab === "driver" && (
           <div className="bg-[#12161f] border border-slate-800 p-5 rounded-3xl space-y-4 shadow-xl">
-            <div className="text-center space-y-1">
-              <h2 className="text-xl font-black text-white">طلبات الرحلات المتاحة 🛺</h2>
-              <p className="text-xs text-slate-400">اختر طلب وقبوله لبدء المشوار</p>
-            </div>
+            {activeRide ? (
+              <div className="space-y-4">
+                <h3 className="text-base font-bold text-amber-400 text-center">مشوار جاري حالياً 🚀</h3>
+                
+                <div className="h-44 rounded-2xl overflow-hidden border border-slate-800">
+                  <DynamicMap center={[17.7022, 33.9822]} pickupName={activeRide.pickup_location || activeRide.pickupLocation} />
+                </div>
 
-            {pendingRides.length === 0 ? (
-              <div className="bg-[#0a0c10] border border-slate-800/80 rounded-2xl p-8 text-center space-y-2">
-                <p className="text-2xl">⏳</p>
-                <p className="text-xs text-slate-400">لا توجد طلبات رحلات جديدة حالياً</p>
+                <div className="bg-[#0a0c10] p-4 rounded-2xl border border-slate-800/80 space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">نقطة الانطلاق:</span>
+                    <span className="font-bold text-white">{activeRide.pickup_location || activeRide.pickupLocation}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">الوجهة:</span>
+                    <span className="font-bold text-white">{activeRide.destination}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">المبلغ:</span>
+                    <span className="font-bold text-emerald-400">{activeRide.offered_price || activeRide.offeredPrice} ج.س</span>
+                  </div>
+                </div>
+
+                {/* 📞 زر الاتصال بالراكب */}
+                <a
+                  href={`tel:${activeRide.passengerPhone || activeRide.passenger_phone || "0912345678"}`}
+                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-2xl shadow-lg active:scale-95 transition-all text-sm flex items-center justify-center gap-2"
+                >
+                  <span>📞</span> الاتصال بالراكب
+                </a>
+
+                <button
+                  onClick={handleCompleteRide}
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl shadow-lg active:scale-95 transition-all text-sm"
+                >
+                  ✅ إنهاء المشوار والتوصيل
+                </button>
               </div>
             ) : (
-              <div className="space-y-3">
-                {pendingRides.map((ride) => (
-                  <div key={ride.id} className="bg-[#0a0c10] border border-slate-800/80 p-4 rounded-2xl space-y-3">
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between text-white">
-                        <span className="text-slate-400">من:</span>
-                        <span className="font-bold">{ride.pickup_location || ride.pickupLocation}</span>
-                      </div>
-                      <div className="flex justify-between text-white">
-                        <span className="text-slate-400">إلى:</span>
-                        <span className="font-bold">{ride.destination}</span>
-                      </div>
-                      <div className="flex justify-between text-amber-400 font-bold pt-1">
-                        <span>السعر المقترح:</span>
-                        <span>{ride.offered_price || ride.offeredPrice} ج.س</span>
-                      </div>
-                    </div>
+              <>
+                <div className="text-center space-y-1">
+                  <h2 className="text-xl font-black text-white">طلبات الرحلات المتاحة 🛺</h2>
+                  <p className="text-xs text-slate-400">اختر طلب وقبوله لبدء المشوار</p>
+                </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      {/* 📞 زر الاتصال بالراكب للسائق */}
-                      <a
-                        href={`tel:${ride.passengerPhone || ride.passenger_phone || "0912345678"}`}
-                        className="py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all"
-                      >
-                        <span>📞</span> اتصال
-                      </a>
-
-                      <button
-                        onClick={() => handleAcceptRide(ride.id)}
-                        className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs active:scale-95 transition-all shadow-md"
-                      >
-                        قبول الطلب ✅
-                      </button>
-                    </div>
+                {pendingRides.length === 0 ? (
+                  <div className="bg-[#0a0c10] border border-slate-800/80 rounded-2xl p-8 text-center space-y-2">
+                    <p className="text-2xl">⏳</p>
+                    <p className="text-xs text-slate-400">لا توجد طلبات رحلات جديدة حالياً</p>
                   </div>
-                ))}
-              </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pendingRides.map((ride) => (
+                      <div key={ride.id} className="bg-[#0a0c10] border border-slate-800/80 p-4 rounded-2xl space-y-3">
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between text-white">
+                            <span className="text-slate-400">من:</span>
+                            <span className="font-bold">{ride.pickup_location || ride.pickupLocation}</span>
+                          </div>
+                          <div className="flex justify-between text-white">
+                            <span className="text-slate-400">إلى:</span>
+                            <span className="font-bold">{ride.destination}</span>
+                          </div>
+                          <div className="flex justify-between text-amber-400 font-bold pt-1">
+                            <span>السعر المقترح:</span>
+                            <span>{ride.offered_price || ride.offeredPrice} ج.س</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <a
+                            href={`tel:${ride.passengerPhone || ride.passenger_phone || "0912345678"}`}
+                            className="py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95 transition-all"
+                          >
+                            <span>📞</span> اتصال
+                          </a>
+
+                          <button
+                            onClick={() => handleAcceptRide(ride.id)}
+                            className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs active:scale-95 transition-all shadow-md"
+                          >
+                            قبول الطلب ✅
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
