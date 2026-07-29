@@ -16,12 +16,20 @@ export default function Home() {
   const router = useRouter();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [serviceType, setServiceType] = useState("ركشة");
+  const [price, setPrice] = useState(1500);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"idle" | "searching" | "accepted" | "completed" | "cancelled">("idle");
   const [lastRideId, setLastRideId] = useState<number | null>(null);
   const [driverName, setDriverName] = useState("");
   const [userName, setUserName] = useState("");
   const [bankAccount, setBankAccount] = useState("");
+
+  const servicePrices: { [key: string]: number } = {
+    "تاكسي": 3500,
+    "توك توك": 2500,
+    "ركشة": 1500,
+  };
 
   useEffect(() => {
     const name = localStorage.getItem("userName") || "مسافر";
@@ -82,7 +90,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          serviceType: "ride",
+          serviceType,
           pickupLocation: from,
           destination: to,
           userId: parseInt(userId),
@@ -182,6 +190,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 flex items-center justify-center">
       <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-white/50">
+        {/* ===== الهيدر مع الاسم والحساب ===== */}
         <div className="flex justify-between items-center mb-2">
           <h1 className="text-2xl font-bold text-indigo-600">🚗 ركشتك</h1>
           <span className="text-sm font-semibold text-gray-700">👋 {userName}</span>
@@ -191,6 +200,7 @@ export default function Home() {
           <button onClick={updateBankAccount} className="text-blue-500 underline font-bold">تعديل</button>
         </div>
 
+        {/* ===== حالة البحث ===== */}
         {status === "idle" || status === "cancelled" ? (
           <div className="space-y-4">
             <div>
@@ -214,6 +224,27 @@ export default function Home() {
               />
             </div>
 
+            {/* ===== أزرار الخدمات (التصميم القديم) ===== */}
+            <div className="grid grid-cols-3 gap-2">
+              {Object.entries(servicePrices).map(([name, amount]) => (
+                <button
+                  key={name}
+                  onClick={() => {
+                    setServiceType(name);
+                    setPrice(amount);
+                  }}
+                  className={`p-3 rounded-xl border-2 text-center transition ${
+                    serviceType === name
+                      ? "border-indigo-600 bg-indigo-50 text-indigo-700"
+                      : "border-gray-200 hover:border-indigo-300"
+                  }`}
+                >
+                  <p className="font-bold text-sm">{name}</p>
+                  <p className="text-xs text-gray-500">{amount} ج.س</p>
+                </button>
+              ))}
+            </div>
+
             <button
               onClick={createRide}
               disabled={loading}
@@ -229,6 +260,7 @@ export default function Home() {
               <>
                 <div className="flex justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div></div>
                 <p className="text-indigo-600 font-bold text-xl">⏳ جاري البحث عن سائق...</p>
+                <p className="text-gray-500 text-sm">نوع الخدمة: {serviceType} | السعر: {price} ج.س</p>
                 <button onClick={cancelRide} className="text-red-600 underline text-sm font-bold">إلغاء الطلب</button>
               </>
             )}
@@ -259,6 +291,7 @@ export default function Home() {
           </div>
         )}
 
+        {/* ===== الفوتر ===== */}
         <div className="mt-6 text-center text-xs text-gray-500 border-t border-gray-200 pt-4">
           <a href="/driver" target="_blank" className="underline hover:text-indigo-600 font-medium">🚗 لوحة السائقين</a>
           <span className="mx-2">|</span>
@@ -267,4 +300,4 @@ export default function Home() {
       </div>
     </main>
   );
-                }
+        }
