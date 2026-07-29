@@ -1,195 +1,94 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
 
-interface Ride {
-  id: number;
-  pickupLocation: string;
-  destination: string;
-  status: string;
-  customerPhone?: string;
-  customerName?: string;
-  bankAccount?: string;
-}
+import { useState } from "react";
+import Map from "@/components/Map";
 
-export default function DriverDashboard() {
-  const [rides, setRides] = useState<Ride[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const prevRidesCount = useRef<number>(0);
-
-  const requestNotificationPermission = () => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  };
-
-  const notifyDriver = (ride: Ride) => {
-    // 1. الصوت
-    try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      oscillator.frequency.value = 880;
-      oscillator.type = "sine";
-      gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
-      oscillator.start();
-      oscillator.stop(audioCtx.currentTime + 0.6);
-    } catch (e) {}
-
-    // 2. الاهتزاز
-    if (navigator.vibrate) navigator.vibrate(300);
-
-    // 3. الإشعار المنبثق (مع التحقق من السياق)
-    try {
-      if (
-        "Notification" in window &&
-        Notification.permission === "granted" &&
-        window.top === window // ليس داخل iframe
-      ) {
-        new Notification("🚗 طلب رحلة جديد!", {
-          body: `من: ${ride.pickupLocation} → إلى: ${ride.destination}`,
-          icon: "https://img.icons8.com/color/48/000000/taxi.png",
-          tag: "new-ride",
-          requireInteraction: true,
-        });
-      }
-    } catch (e) {
-      console.warn("⚠️ لم نتمكن من إنشاء الإشعار");
-    }
-  };
-
-  const fetchRides = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/rides?status=searching");
-      if (!res.ok) throw new Error(`خطأ في الخادم: ${res.status}`);
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        if (data.length > prevRidesCount.current && data.length > 0) {
-          notifyDriver(data[0]);
-        }
-        prevRidesCount.current = data.length;
-        setRides(data);
-      } else {
-        throw new Error("البيانات غير صحيحة");
-      }
-    } catch (err: any) {
-      setError(err.message || "فشل جلب الطلبات");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    requestNotificationPermission();
-    fetchRides();
-    const interval = setInterval(fetchRides, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const acceptRide = async (id: number) => {
-    try {
-      await fetch(`/api/rides/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "accepted", driverId: "عبدالله" }),
-      });
-      alert("✅ تم قبول الرحلة!");
-      fetchRides();
-    } catch (error) {
-      alert("❌ فشل القبول");
-    }
-  };
-
-  const cancelRide = async (id: number) => {
-    if (!confirm("هل تريد إلغاء هذه الرحلة؟")) return;
-    try {
-      await fetch(`/api/rides/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "cancelled" }),
-      });
-      alert("تم إلغاء الرحلة");
-      fetchRides();
-    } catch (error) {
-      alert("فشل الإلغاء");
-    }
-  };
-
-  const completeRide = async (id: number) => {
-    const rating = prompt("قيم الراكب من 1 إلى 5 نجوم:");
-    if (rating && !isNaN(Number(rating)) && Number(rating) >= 1 && Number(rating) <= 5) {
-      try {
-        await fetch(`/api/rides/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "completed", riderRating: Number(rating) }),
-        });
-        alert("✅ تم إنهاء الرحلة وتقييم الراكب!");
-        fetchRides();
-      } catch (error) {
-        alert("❌ فشل إنهاء الرحلة");
-      }
-    } else {
-      alert("يرجى إدخال تقييم بين 1 و 5");
-    }
-  };
+export default function DriverPage() {
+  const [isAvailable, setIsAvailable] = useState(true);
+  const [activeTab, setActiveTab] = useState<"requests" | "myTrip">("requests");
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-slate-800 p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex flex-wrap justify-between items-center mb-6 gap-2">
-          <h1 className="text-3xl font-bold text-white">🚗 لوحة السائقين</h1>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-bold">
-              {rides.length} طلب جديد
-            </span>
-            <button onClick={fetchRides} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-full text-sm font-bold transition disabled:opacity-50">
-              {loading ? "⏳" : "🔄 تحديث"}
-            </button>
-            <button onClick={() => { if ("Notification" in window) Notification.requestPermission().then(p => alert(`الإشعارات: ${p}`)); }} className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-full text-sm font-bold transition">
-              🔔 تفعيل الإشعارات
-            </button>
+    <div className="min-h-screen bg-[#0d1117] text-slate-100 p-4 flex flex-col items-center justify-center">
+      <div className="w-full max-w-md bg-[#161b22] border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-4">
+        
+        {/* الهيدر مع حالة التوفر */}
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🛺</span>
+            <div>
+              <h1 className="font-bold text-lg text-white">لوحة السائق</h1>
+              <p className="text-[10px] text-slate-400">عطبرة، السودان</p>
+            </div>
           </div>
+          
+          <button
+            onClick={() => setIsAvailable(!isAvailable)}
+            className={`px-3 py-1 rounded-full text-xs font-bold transition ${
+              isAvailable
+                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                : "bg-rose-500/20 text-rose-400 border border-rose-500/40"
+            }`}
+          >
+            {isAvailable ? "م متاح للطلبات 🟢" : "غير متاح 🔴"}
+          </button>
         </div>
 
-        {error && <div className="bg-red-500/20 border border-red-500 text-red-200 p-3 rounded-xl mb-4 text-center">⚠️ {error}</div>}
+        {/* الخريطة */}
+        <div className="w-full h-40 rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
+          <Map pickupName="موقعك الحالي" />
+        </div>
 
-        {rides.length === 0 && !error ? (
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-12 text-center border border-white/10">
-            <p className="text-gray-200 text-xl font-semibold">😴 لا توجد طلبات</p>
+        {/* التبديل بين التبويبات */}
+        <div className="grid grid-cols-2 gap-2 bg-[#0d1117] p-1 rounded-xl border border-slate-800">
+          <button
+            onClick={() => setActiveTab("requests")}
+            className={`py-2 text-xs font-bold rounded-lg transition ${
+              activeTab === "requests"
+                ? "bg-amber-500 text-slate-950 shadow"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            الطلبات المتاحة 📥
+          </button>
+          <button
+            onClick={() => setActiveTab("myTrip")}
+            className={`py-2 text-xs font-bold rounded-lg transition ${
+              activeTab === "myTrip"
+                ? "bg-amber-500 text-slate-950 shadow"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            المشوار الحالي 🚕
+          </button>
+        </div>
+
+        {/* قائمة الطلبات المتاحة */}
+        {activeTab === "requests" ? (
+          <div className="space-y-3">
+            <div className="bg-[#0d1117] border border-slate-800 p-4 rounded-2xl space-y-2">
+              <div className="flex justify-between items-start">
+                <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                  طلب ركشة
+                </span>
+                <span className="text-xs text-slate-400">قبل دقيقتين</span>
+              </div>
+              <div className="text-sm space-y-1">
+                <p className="text-slate-300">📍 <b>من:</b> السوق الكبير</p>
+                <p className="text-slate-300">🏁 <b>إلى:</b> حي المطار</p>
+                <p className="text-amber-400 font-bold">💰 <b>العرض المقترح:</b> 1500 ج.س</p>
+              </div>
+              <button className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow transition mt-2">
+                قبول المشوار 🤝
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {rides.map((ride) => (
-              <div key={ride.id} className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/10 hover:bg-white/20 transition">
-                <div className="flex justify-between items-start mb-3">
-                  <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full"># {ride.id}</span>
-                  <span className="text-yellow-400 text-sm font-bold">⏳ بانتظار السائق</span>
-                </div>
-                <p className="text-white font-bold text-lg">📍 {ride.pickupLocation}</p>
-                <p className="text-gray-300 text-lg mb-2">🏁 {ride.destination}</p>
-                <p className="text-gray-300 text-sm">👤 {ride.customerName || "مسافر"}</p>
-                <p className="text-gray-300 text-sm">📞 {ride.customerPhone || "غير متوفر"}</p>
-                {ride.bankAccount && (
-                  <p className="text-blue-400 text-sm mb-2 font-semibold">🏦 الحساب: {ride.bankAccount}</p>
-                )}
-                <div className="flex flex-wrap gap-2 mt-3">
-                  <button onClick={() => acceptRide(ride.id)} className="flex-1 bg-green-500 text-white py-2 rounded-xl font-bold hover:bg-green-600 transition">قبول ✅</button>
-                  <button onClick={() => cancelRide(ride.id)} className="flex-1 bg-red-500/50 text-white py-2 rounded-xl font-bold hover:bg-red-600 transition">إلغاء ❌</button>
-                  <button onClick={() => completeRide(ride.id)} className="flex-1 bg-purple-500 text-white py-2 rounded-xl font-bold hover:bg-purple-600 transition">إنهاء ✨</button>
-                </div>
-              </div>
-            ))}
+          <div className="bg-[#0d1117] border border-slate-800 p-6 rounded-2xl text-center space-y-2">
+            <p className="text-slate-400 text-sm">لا يوجد مشوار نشط حالياً</p>
           </div>
         )}
-        <div className="mt-8 text-center text-gray-400 text-sm">
-          <button onClick={() => { localStorage.clear(); window.location.href = "/login"; }} className="text-red-400 underline font-bold">تسجيل خروج</button>
-        </div>
+
       </div>
     </div>
   );
-                  }
+}
