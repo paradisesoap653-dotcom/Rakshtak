@@ -1,216 +1,179 @@
 "use client";
+import { useEffect, useState, useRef } from "react";
 
-import { useState, useEffect, useCallback } from "react";
-import dynamic from "next/dynamic";
+interface Ride {
+  id: number;
+  pickupLocation: string;
+  destination: string;
+  status: string;
+  customerPhone?: string;
+  customerName?: string;
+}
 
-// 📍 تحميل الخريطة ديناميكياً مع إيقاف الـ SSR لتجنب مشاكل Prerender/Build
-const DynamicMap = dynamic(() => import("@/components/Map"), {
-  ssr: false,
-  loading: () => (
-    <div className="h-full w-full bg-slate-900/50 animate-pulse flex items-center justify-center text-xs text-slate-500 rounded-2xl border border-slate-800">
-      جاري تحميل خريطة المشوار...
-    </div>
-  ),
-});
+export default function DriverDashboard() {
+  const [rides, setRides] = useState<Ride[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const prevRidesCount = useRef<number>(0);
 
-export default function DriverPage() {
-  const [isOnline, setIsOnline] = useState<boolean>(true);
-  const [pendingRides, setPendingRides] = useState<any[]>([]);
-  const [activeRide, setActiveRide] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-
-  // جلب الرحلات المتاحة بانتظام
-  const fetchRides = useCallback(async () => {
-    if (!isOnline) return;
-    try {
-      const res = await fetch("/api/rides");
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.rides)) {
-          // فلترة الرحلات المعلقة والجديدة
-          setPendingRides(data.rides.filter((r: any) => r.status === "pending"));
-          
-          // التحقق من وجود رحلة مقبولة قيد التنفيذ حالياً
-          const current = data.rides.find((r: any) => r.status === "accepted");
-          if (current) {
-            setActiveRide(current);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("خطأ في جلب رحلات السائق:", error);
+  const requestNotificationPermission = () => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
     }
-  }, [isOnline]);
+  };
 
-  useEffect(() => {
-    fetchRides();
-    const interval = setInterval(() => {
-      fetchRides();
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [fetchRides]);
-
-  // قبول طلب الرحلة
-  const handleAcceptRide = async (rideId: string) => {
-    setLoading(true);
+  const notifyDriver = (ride: Ride) => {
     try {
-      const res = await fetch("/api/rides", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rideId, status: "accepted" }),
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.frequency.value = 880;
+      oscillator.type = "sine";
+      gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.6);
+    } catch (e) {}
+
+    if (navigator.vibrate) navigator.vibrate(300);
+
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("🚗 طلب رحلة جديد!", {
+        body: `من: ${ride.pickupLocation} → إلى: ${ride.destination}`,
+        icon: "https://img.icons8.com/color/48/000000/taxi.png",
+        tag: "new-ride",
+        requireInteraction: true,
       });
-      if (res.ok) {
-        alert("تم قبول الرحلة! توجه لنقطة الانطلاق الآن.");
-        fetchRides();
+    }
+  };
+
+  const fetchRides = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/rides?status=searching");
+      if (!res.ok) throw new Error(`خطأ في الخادم: ${res.status}`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        if (data.length > prevRidesCount.current && data.length > 0) {
+          notifyDriver(data[0]);
+        }
+        prevRidesCount.current = data.length;
+        setRides(data);
       } else {
-        alert("عذراً، قد يكون تم قبول هذه الرحلة من سائق آخر.");
+        throw new Error("البيانات غير صحيحة");
       }
-    } catch (error) {
-      console.error("خطأ في قبول الرحلة:", error);
+    } catch (err: any) {
+      setError(err.message || "فشل جلب الطلبات");
     } finally {
       setLoading(false);
     }
   };
 
-  // إنهاء الرحلة
-  const handleCompleteRide = async (rideId: string) => {
-    setLoading(true);
+  useEffect(() => {
+    requestNotificationPermission();
+    fetchRides();
+    const interval = setInterval(fetchRides, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const acceptRide = async (id: number) => {
     try {
-      const res = await fetch("/api/rides", {
+      await fetch(`/api/rides/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rideId, status: "completed" }),
+        body: JSON.stringify({ status: "accepted", driverId: "عبدالله" }),
       });
-      if (res.ok) {
-        alert("تم إنهاء الرحلة بنجاح. تحصيل المبلغ من الراكب.");
-        setActiveRide(null);
-        fetchRides();
-      }
+      alert("✅ تم قبول الرحلة!");
+      fetchRides();
     } catch (error) {
-      console.error("خطأ في إكمال الرحلة:", error);
-    } finally {
-      setLoading(false);
+      alert("❌ فشل القبول");
+    }
+  };
+
+  const cancelRide = async (id: number) => {
+    if (!confirm("هل تريد إلغاء هذه الرحلة؟")) return;
+    try {
+      await fetch(`/api/rides/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      alert("تم إلغاء الرحلة");
+      fetchRides();
+    } catch (error) {
+      alert("فشل الإلغاء");
+    }
+  };
+
+  const completeRide = async (id: number) => {
+    const rating = prompt("قيم الراكب من 1 إلى 5 نجوم:");
+    if (rating && !isNaN(Number(rating)) && Number(rating) >= 1 && Number(rating) <= 5) {
+      try {
+        await fetch(`/api/rides/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "completed", riderRating: Number(rating) }),
+        });
+        alert("✅ تم إنهاء الرحلة وتقييم الراكب!");
+        fetchRides();
+      } catch (error) {
+        alert("❌ فشل إنهاء الرحلة");
+      }
+    } else {
+      alert("يرجى إدخال تقييم بين 1 و 5");
     }
   };
 
   return (
-    <main className="min-h-screen bg-[#0a0c10] text-white flex flex-col items-center justify-start p-4 font-sans" dir="rtl">
-      <div className="w-full max-w-md space-y-4">
-        
-        {/* شريط حالة السائق (متصل / غير متصل) */}
-        <div className="bg-[#12161f] border border-slate-800 p-4 rounded-3xl flex items-center justify-between shadow-xl">
-          <div className="flex items-center gap-3">
-            <div className={`w-3.5 h-3.5 rounded-full ${isOnline ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
-            <div>
-              <h1 className="text-sm font-black text-white">لوحة الكابتن 🛺</h1>
-              <p className="text-[11px] text-slate-400">
-                {isOnline ? "أنت متصل الآن لاستقبال الطلبات" : "أنت غير متصل"}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => setIsOnline(!isOnline)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow ${
-              isOnline
-                ? "bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-500/20"
-                : "bg-emerald-500 text-white hover:bg-emerald-600"
-            }`}
-          >
-            {isOnline ? "إيقاف الاستقبال" : "تفعيل الاستقبال"}
-          </button>
-        </div>
-
-        {/* الرحلة الجارية حالياً إن وجدت */}
-        {activeRide && (
-          <div className="bg-[#12161f] border border-amber-500/40 p-5 rounded-3xl space-y-4 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 left-0 h-1 bg-amber-500 animate-pulse" />
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-                رحلة جارية الآن 🚀
-              </span>
-              <span className="text-xs font-extrabold text-emerald-400">{activeRide.offeredPrice} ج.س</span>
-            </div>
-
-            <div className="h-44 rounded-2xl overflow-hidden border border-slate-800">
-              <DynamicMap center={[17.7022, 33.9822]} pickupName={activeRide.pickupLocation} />
-            </div>
-
-            <div className="bg-[#0a0c10] p-3.5 rounded-2xl border border-slate-800 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-400">موقع الراكب:</span>
-                <span className="font-bold text-white">{activeRide.pickupLocation}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">الوجهة:</span>
-                <span className="font-bold text-white">{activeRide.destination}</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => handleCompleteRide(activeRide.id)}
-              disabled={loading}
-              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl shadow-lg active:scale-95 transition-all text-xs disabled:opacity-50"
-            >
-              {loading ? "جاري التحديث..." : "✅ تم الوصول وإكمال الرحلة"}
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-slate-800 p-4">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex flex-wrap justify-between items-center mb-6 gap-2">
+          <h1 className="text-3xl font-bold text-white">🚗 لوحة السائقين</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="bg-green-500 text-white px-4 py-1 rounded-full text-sm font-bold">
+              {rides.length} طلب جديد
+            </span>
+            <button onClick={fetchRides} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded-full text-sm font-bold transition disabled:opacity-50">
+              {loading ? "⏳" : "🔄 تحديث"}
+            </button>
+            <button onClick={() => { if ("Notification" in window) Notification.requestPermission().then(p => alert(`الإشعارات: ${p}`)); }} className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded-full text-sm font-bold transition">
+              🔔 تفعيل الإشعارات
             </button>
           </div>
-        )}
+        </div>
 
-        {/* قائمة الطلبات الجديدة المتاحة */}
-        {!activeRide && (
-          <div className="bg-[#12161f] border border-slate-800 p-5 rounded-3xl space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-              <h2 className="text-sm font-black text-white">الطلبات المتاحة القريبة</h2>
-              <span className="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded-full font-bold">
-                {pendingRides.length} طلبات
-              </span>
-            </div>
+        {error && <div className="bg-red-500/20 border border-red-500 text-red-200 p-3 rounded-xl mb-4 text-center">⚠️ {error}</div>}
 
-            {!isOnline ? (
-              <div className="bg-[#0a0c10] border border-slate-800 rounded-2xl p-8 text-center space-y-2">
-                <p className="text-2xl">💤</p>
-                <p className="text-xs text-slate-400">قم بتفعيل الاستقبال لعرض الطلبات القريبة</p>
+        {rides.length === 0 && !error ? (
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-12 text-center border border-white/10">
+            <p className="text-gray-200 text-xl font-semibold">😴 لا توجد طلبات</p>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            {rides.map((ride) => (
+              <div key={ride.id} className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 border border-white/10 hover:bg-white/20 transition">
+                <div className="flex justify-between items-start mb-3">
+                  <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full"># {ride.id}</span>
+                  <span className="text-yellow-400 text-sm font-bold">⏳ بانتظار السائق</span>
+                </div>
+                <p className="text-white font-bold text-lg">📍 {ride.pickupLocation}</p>
+                <p className="text-gray-300 text-lg mb-2">🏁 {ride.destination}</p>
+                <p className="text-gray-300 text-sm">👤 {ride.customerName || "مسافر"}</p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <button onClick={() => acceptRide(ride.id)} className="flex-1 bg-green-500 text-white py-2 rounded-xl font-bold hover:bg-green-600 transition">قبول ✅</button>
+                  <button onClick={() => cancelRide(ride.id)} className="flex-1 bg-red-500/50 text-white py-2 rounded-xl font-bold hover:bg-red-600 transition">إلغاء ❌</button>
+                  <button onClick={() => completeRide(ride.id)} className="flex-1 bg-purple-500 text-white py-2 rounded-xl font-bold hover:bg-purple-600 transition">إنهاء ✨</button>
+                </div>
               </div>
-            ) : pendingRides.length === 0 ? (
-              <div className="bg-[#0a0c10] border border-slate-800/80 rounded-2xl p-8 text-center space-y-2">
-                <p className="text-2xl">⏳</p>
-                <p className="text-xs text-slate-400">في انتظار طلبات رحلات جديدة...</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {pendingRides.map((ride) => (
-                  <div key={ride.id} className="bg-[#0a0c10] border border-slate-800 p-4 rounded-2xl space-y-3 hover:border-slate-700 transition-all">
-                    <div className="space-y-1.5 text-xs">
-                      <div className="flex justify-between items-center text-white">
-                        <span className="text-slate-400">من:</span>
-                        <span className="font-bold text-amber-400">{ride.pickupLocation}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-white">
-                        <span className="text-slate-400">إلى:</span>
-                        <span className="font-bold">{ride.destination}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-emerald-400 font-extrabold pt-1 border-t border-slate-800/50">
-                        <span>المبلغ المستحق:</span>
-                        <span className="text-sm">{ride.offeredPrice} ج.س</span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => handleAcceptRide(ride.id)}
-                      disabled={loading}
-                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-extrabold rounded-xl text-xs active:scale-95 transition-all shadow-md disabled:opacity-50"
-                    >
-                      {loading ? "جاري القبول..." : "قبول الطلب والتحرك 🛺"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            ))}
           </div>
         )}
-
+        <div className="mt-8 text-center text-gray-400 text-sm">
+          <button onClick={() => { localStorage.clear(); window.location.href = "/login"; }} className="text-red-400 underline font-bold">تسجيل خروج</button>
+        </div>
       </div>
-    </main>
+    </div>
   );
-}
+            }
