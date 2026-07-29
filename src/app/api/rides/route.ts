@@ -1,71 +1,63 @@
-import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase"; // أعد ضبط مسار supabase حسب مشروعك
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/db";
+import { rides, users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
-export async function GET() {
+// ===== POST: إنشاء طلب جديد =====
+export async function POST(request: NextRequest) {
   try {
-    const { data, error } = await supabase
-      .from("rides")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const body = await request.json();
+    const { serviceType, pickupLocation, destination, userId, customerName } = body;
 
-    if (error) throw error;
-    return NextResponse.json({ rides: data });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
-}
-
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    
-    // توحيد اسم الهاتف القادم من الواجهة
-    const phone = body.passengerPhone || body.passenger_phone || body.phone || "";
-
-    const { data, error } = await supabase
-      .from("rides")
-      .insert([
-        {
-          service_type: body.serviceType || body.service_type || "raksha",
-          pickup_location: body.pickupLocation || body.pickup_location,
-          destination: body.destination,
-          offered_price: body.offeredPrice || body.offered_price,
-          passenger_phone: phone, // تأكد أن العمود في Supabase هو passenger_phone أو phone
-          status: "pending",
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json({ success: true, ride: data });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
-  }
-}
-
-export async function PATCH(req: Request) {
-  try {
-    const body = await req.json();
-    const { rideId, status, driverPhone } = body;
-
-    const updateData: any = { status };
-    if (driverPhone) {
-      updateData.driver_phone = driverPhone;
+    if (!serviceType || !pickupLocation || !destination) {
+      return NextResponse.json({ error: "بيانات ناقصة" }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from("rides")
-      .update(updateData)
-      .eq("id", rideId)
-      .select()
-      .single();
+    const [newRide] = await db
+      .insert(rides)
+      .values({
+        serviceType,
+        pickupLocation,
+        destination,
+        userId: userId || null,
+        customerName: customerName || null,
+      })
+      .returning();
 
-    if (error) throw error;
+    return NextResponse.json({ ride: newRide }, { status: 201 });
+  } catch (error) {
+    console.error("Error creating ride:", error);
+    return NextResponse.json({ error: "حدث خطأ أثناء حفظ الطلب" }, { status: 500 });
+  }
+}
 
-    return NextResponse.json({ success: true, ride: data });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+// ===== GET: جلب الطلبات مع bankAccount =====
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get("status");
+
+    let query = db
+      .select({
+        id: rides.id,
+        pickupLocation: rides.pickupLocation,
+        destination: rides.destination,
+        status: rides.status,
+        customerPhone: rides.customerPhone,
+        customerName: rides.customerName,
+        bankAccount: users.bankAccount, // <-- إضافة رقم الحساب
+        userId: rides.userId,
+      })
+      .from(rides)
+      .leftJoin(users, eq(rides.userId, users.id));
+
+    if (status) {
+      query = query.where(eq(rides.status, status));
+    }
+    const results = await query;
+    return NextResponse.json(results);
+  } catch (error) {
+    console.error("Error fetching rides:", error);
+    return NextResponse.json({ error: "فشل جلب الطلبات" }, { status: 500 });
   }
 }
