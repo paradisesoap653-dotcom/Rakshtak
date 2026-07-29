@@ -29,7 +29,7 @@ export default function DriverPage() {
                 : "bg-rose-500/20 text-rose-400 border border-rose-500/40"
             }`}
           >
-            {isAvailable ? "م متاح للطلبات 🟢" : "غير متاح 🔴"}
+            {isAvailable ? "متاح للطلبات 🟢" : "غير متاح 🔴"}
           </button>
         </div>
 
@@ -75,7 +75,7 @@ export default function DriverPage() {
               <div className="text-sm space-y-1">
                 <p className="text-slate-300">📍 <b>من:</b> السوق الكبير</p>
                 <p className="text-slate-300">🏁 <b>إلى:</b> حي المطار</p>
-                <p className="text-amber-400 font-bold">💰 <b>العرض المقترح:</b> 1500 ج.س</p>
+                <p className="text-amber-400 font-bold">🤝 <b>العرض:</b> مقاولة / مفاصلة</p>
               </div>
               <button className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow transition mt-2">
                 قبول المشوار 🤝
