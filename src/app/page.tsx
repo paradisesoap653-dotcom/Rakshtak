@@ -82,7 +82,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          serviceType: "ride", // قيمة ثابتة لأننا ما بنستخدمها
+          serviceType: "ride",
           pickupLocation: from,
           destination: to,
           userId: parseInt(userId),
@@ -182,7 +182,6 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 flex items-center justify-center">
       <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-white/50">
-        {/* ===== الهيدر ===== */}
         <div className="flex justify-between items-center mb-2">
           <h1 className="text-2xl font-bold text-indigo-600">🚗 ركشتك</h1>
           <span className="text-sm font-semibold text-gray-700">👋 {userName}</span>
@@ -251,8 +250,8 @@ export default function Home() {
               <>
                 <p className="text-gray-800 text-xl font-bold">✅ الرحلة انتهت!</p>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  <button onClick={() => router.push(`/payment/${lastRideId}`)} className="bg-green-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-green-600 transition">💳 الدفع (اختياري)</button>
-                  <button onClick={() => router.push(`/rate/${lastRideId}`)} className="bg-yellow-500 text-white px-4 py-2 rounded-xl font-bold">⭐ تقييم السائق</button>
+                  <button onClick={() => router.push(`/payment/${lastRideId}`)} className="bg-green-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-green-600 transition">💳 الدفع</button>
+                  <button onClick={() => router.push(`/rate/${lastRideId}`)} className="bg-yellow-500 text-white px-4 py-2 rounded-xl font-bold">⭐ تقييم</button>
                   <button onClick={() => { setStatus("idle"); setLastRideId(null); setFrom(""); setTo(""); }} className="bg-indigo-500 text-white px-4 py-2 rounded-xl">طلب جديد</button>
                 </div>
               </>
@@ -268,4 +267,4 @@ export default function Home() {
       </div>
     </main>
   );
-        }
+                }
