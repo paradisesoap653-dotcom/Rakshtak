@@ -1,547 +1,264 @@
 "use client";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Pusher from 'pusher-js';
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import dynamic from "next/dynamic";
+interface Ride {
+  id: number;
+  pickupLocation: string;
+  destination: string;
+  status: string;
+  driverId?: string;
+  customerName?: string;
+}
 
-const DynamicMap = dynamic(() => import("@/components/Map"), {
-  ssr: false,
-  loading: () => (
-    <div className="h-full w-full bg-slate-900/50 animate-pulse flex items-center justify-center text-xs text-slate-500 rounded-2xl border border-slate-800">
-      جاري تحميل الخريطة...
-    </div>
-  ),
-});
+export default function Home() {
+  const router = useRouter();
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<"idle" | "searching" | "accepted" | "completed" | "cancelled">("idle");
+  const [lastRideId, setLastRideId] = useState<number | null>(null);
+  const [driverName, setDriverName] = useState("");
+  const [userName, setUserName] = useState("");
+  const [bankAccount, setBankAccount] = useState("");
 
-export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<"passenger" | "driver">("passenger");
-  const [pickup, setPickup] = useState<string>("");
-  const [destination, setDestination] = useState<string>("");
-  const [offeredPrice, setOfferedPrice] = useState<number>(1500);
-  const [loading, setLoading] = useState<boolean>(false);
-
-  // إدارة الدخول ورقم الهاتف
-  const [userPhone, setUserPhone] = useState<string>("");
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [phoneInput, setPhoneInput] = useState<string>("");
-
-  // الصوت والإشعارات المرئية
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // الرحلات
-  const [activeRide, setActiveRide] = useState<any>(null);
-  const [pendingRides, setPendingRides] = useState<any[]>([]);
-  const previousRidesCount = useRef<number>(0);
-
-  // التقييم
-  const [showRating, setShowRating] = useState<boolean>(false);
-
-  // إظهار إشعار مؤقت للمستخدم
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4000);
-  };
-
-  // تهيئة الصوت ورقم الهاتف المحفوظ
   useEffect(() => {
-    const savedPhone = localStorage.getItem("rakshatak_user_phone");
-    if (savedPhone) {
-      setUserPhone(savedPhone);
-      setIsLoggedIn(true);
+    const name = localStorage.getItem("userName") || "مسافر";
+    const account = localStorage.getItem("bankAccount") || "";
+    setUserName(name);
+    setBankAccount(account);
+    const userId = localStorage.getItem("userId");
+    if (!userId) router.push("/login");
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
     }
+  }, [router]);
 
-    const initAudio = () => {
-      if (!audioCtxRef.current) {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioCtx) audioCtxRef.current = new AudioCtx();
-      }
-      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
-        audioCtxRef.current.resume();
-      }
-    };
-
-    window.addEventListener("click", initAudio, { once: true });
-    return () => window.removeEventListener("click", initAudio);
-  }, []);
-
-  // تشغيل تنبيه صوتي أقوى وأوضح
-  const playNotificationSound = () => {
+  // ===== تعديل رقم الحساب =====
+  const updateBankAccount = async () => {
+    const newAccount = prompt("أدخل رقم حسابك البنكي (مثال: بنكك - 123456789):", bankAccount);
+    if (newAccount === null) return;
+    const userId = localStorage.getItem("userId");
     try {
-      if (!audioCtxRef.current) {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioCtx) audioCtxRef.current = new AudioCtx();
-      }
-      const ctx = audioCtxRef.current;
-      if (!ctx) return;
-      if (ctx.state === "suspended") ctx.resume();
-
-      // نغمتين متتاليتين لتنبيه أقوى
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(587.33, now); // D5
-      osc.frequency.setValueAtTime(880, now + 0.15); // A5
-
-      gain.gain.setValueAtTime(0.6, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      
-      osc.start(now);
-      osc.stop(now + 0.4);
-    } catch (err) {
-      console.log("Audio Error:", err);
-    }
-  };
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phoneInput || phoneInput.length < 8) {
-      alert("الرجاء إدخال رقم هاتف صحيح");
-      return;
-    }
-    localStorage.setItem("rakshatak_user_phone", phoneInput);
-    setUserPhone(phoneInput);
-    setIsLoggedIn(true);
-    showToast("تم تسجيل الدخول بنجاح 🎉");
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem("rakshatak_user_phone");
-    setUserPhone("");
-    setIsLoggedIn(false);
-    setActiveRide(null);
-  };
-
-  // المزامنة الدورية للرحلات
-  const fetchData = useCallback(async () => {
-    try {
-      const res = await fetch("/api/rides");
+      const res = await fetch("/api/user/update", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: parseInt(userId!), bankAccount: newAccount }),
+      });
       if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.rides)) {
-          const allRides = data.rides;
-
-          // 1. تحديث قائمة الطلبات المتاحة للسائقين
-          const pending = allRides.filter((r: any) => r.status === "pending");
-          if (pending.length > previousRidesCount.current) {
-            playNotificationSound();
-            showToast("🛺 وصل طلب رحلة جديد متاح الآن!");
-          }
-          previousRidesCount.current = pending.length;
-          setPendingRides(pending);
-
-          // 2. تحديث حالة الرحلة للراكب أو السائق
-          if (userPhone) {
-            const currentActive = allRides.find(
-              (r: any) =>
-                (r.passenger_phone === userPhone ||
-                  r.passengerPhone === userPhone ||
-                  r.driver_phone === userPhone ||
-                  r.driverPhone === userPhone) &&
-                (r.status === "pending" || r.status === "accepted")
-            );
-
-            if (currentActive) {
-              // إذا تغيرت حالة الطلب من منتظر إلى مقبول وأنا راكب
-              if (activeRide && activeRide.status === "pending" && currentActive.status === "accepted") {
-                playNotificationSound();
-                showToast("🚀 تم قبول طلبك من قِبل السائق!");
-              }
-              setActiveRide(currentActive);
-            } else if (activeRide && activeRide.status !== "completed") {
-              setActiveRide(null);
-            }
-          }
-        }
+        localStorage.setItem("bankAccount", newAccount);
+        setBankAccount(newAccount);
+        alert("✅ تم تحديث رقم الحساب!");
+      } else {
+        alert("❌ فشل التحديث");
       }
-    } catch (error) {
-      console.error("خطأ في تحديث البيانات:", error);
+    } catch (e) {
+      alert("خطأ في الاتصال");
     }
-  }, [userPhone, activeRide]);
+  };
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 3000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
-
-  const handleCreateRide = async () => {
-    if (!pickup || !destination) {
-      alert("الرجاء إدخال نقطة الانطلاق والوجهة");
-      return;
+  const notifyRider = (msg: string) => {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("🚖 تحديث الرحلة", {
+        body: msg,
+        icon: "https://img.icons8.com/color/48/000000/taxi.png",
+        tag: "ride-update",
+        requireInteraction: true,
+      });
     }
+    if (navigator.vibrate) navigator.vibrate(200);
+  };
+
+  const createRide = async () => {
+    if (!from || !to) return alert("يرجى ملء نقطة الانطلاق والوجهة");
+    const userId = localStorage.getItem("userId");
+    if (!userId) return router.push("/login");
 
     setLoading(true);
+    setStatus("searching");
+
     try {
       const res = await fetch("/api/rides", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          serviceType: "raksha",
-          pickupLocation: pickup,
-          destination: destination,
-          offeredPrice: offeredPrice,
-          passengerPhone: userPhone,
-          passenger_phone: userPhone,
+          serviceType: "ride",
+          pickupLocation: from,
+          destination: to,
+          userId: parseInt(userId),
+          customerName: userName,
         }),
       });
-
       const data = await res.json();
-      if (data.success) {
-        setActiveRide(data.ride);
-        showToast("🚀 تم إرسال طلبك بنجاح، جاري البحث عن سائق...");
-        fetchData();
+      if (res.ok) {
+        setLastRideId(data.ride.id);
       } else {
-        alert(`فشل الإرسال: ${data.error || "خطأ في السيرفر"}`);
+        alert("حدث خطأ أثناء إرسال الطلب");
+        setStatus("idle");
       }
-    } catch (error: any) {
-      alert(`خطأ في الاتصال: ${error.message}`);
+    } catch (error) {
+      alert("فشل الاتصال بالخادم");
+      setStatus("idle");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAcceptRide = async (ride: any) => {
+  const cancelRide = async () => {
+    if (!lastRideId) return;
+    if (!confirm("هل تريد إلغاء الرحلة؟")) return;
     try {
-      const res = await fetch("/api/rides", {
+      await fetch(`/api/rides/${lastRideId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rideId: ride.id,
-          status: "accepted",
-          driverPhone: userPhone,
-        }),
+        body: JSON.stringify({ status: "cancelled" }),
       });
-      const data = await res.json();
-      if (data.success) {
-        setActiveRide(data.ride);
-        showToast("✅ تم قبول الطلب بنجاح، توجه إلى الراكب!");
-        fetchData();
-      } else {
-        alert(`تعذر قبول الطلب: ${data.error}`);
-      }
-    } catch (error: any) {
-      alert(`خطأ في الاتصال: ${error.message}`);
-    }
-  };
-
-  const handleCompleteRide = async () => {
-    if (!activeRide) return;
-    try {
-      await fetch("/api/rides", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rideId: activeRide.id, status: "completed" }),
-      });
-      setShowRating(true);
-      showToast("⭐ انتهت الرحلة بسلامة الله");
+      setStatus("cancelled");
+      alert("تم إلغاء الرحلة");
     } catch (error) {
-      console.error("Error completing ride:", error);
+      alert("فشل الإلغاء");
     }
   };
 
-  const handleSubmitRating = () => {
-    setShowRating(false);
-    setActiveRide(null);
-    setPickup("");
-    setDestination("");
-  };
+  useEffect(() => {
+    if (!lastRideId) return;
 
-  const extractPassengerPhone = (rideObj: any) => {
-    if (!rideObj) return "";
-    return rideObj.passenger_phone || rideObj.passengerPhone || "";
-  };
+    let pusher: any = null;
+    let channel: any = null;
+    let interval: NodeJS.Timeout | null = null;
 
-  const extractDriverPhone = (rideObj: any) => {
-    if (!rideObj) return "";
-    return rideObj.driver_phone || rideObj.driverPhone || "";
-  };
+    try {
+      pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+        cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+      });
+      channel = pusher.subscribe(`ride-${lastRideId}`);
+      channel.bind('status-update', (data: { status: string }) => {
+        if (data.status === "accepted") {
+          setStatus("accepted");
+          setDriverName("السائق");
+          notifyRider("✅ تم قبول رحلتك! السائق في الطريق.");
+          if (interval) clearInterval(interval);
+          pusher.unsubscribe(`ride-${lastRideId}`);
+        } else if (data.status === "cancelled") {
+          setStatus("cancelled");
+          notifyRider("❌ تم إلغاء الرحلة.");
+          if (interval) clearInterval(interval);
+          pusher.unsubscribe(`ride-${lastRideId}`);
+        } else if (data.status === "completed") {
+          setStatus("completed");
+          notifyRider("✅ الرحلة انتهت! قيّم السائق.");
+          if (interval) clearInterval(interval);
+          pusher.unsubscribe(`ride-${lastRideId}`);
+        }
+      });
+    } catch (e) { console.warn("Pusher غير متاح"); }
 
-  if (!isLoggedIn) {
-    return (
-      <main className="min-h-screen bg-[#0a0c10] text-white flex flex-col items-center justify-center p-4 font-sans" dir="rtl">
-        <div className="w-full max-w-md bg-[#12161f] border border-slate-800 p-6 rounded-3xl space-y-6 text-center shadow-2xl">
-          <div className="w-20 h-20 bg-amber-500/10 border border-amber-500/30 rounded-3xl flex items-center justify-center mx-auto text-4xl">
-            🛺
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-2xl font-black text-white">مرحباً بك في ركشتك</h1>
-            <p className="text-xs text-slate-400">أدخل رقم هاتفك للبدء واستخدام التطبيق</p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input
-              type="tel"
-              required
-              value={phoneInput}
-              onChange={(e) => setPhoneInput(e.target.value)}
-              placeholder="مثال: 0912345678"
-              className="w-full bg-[#0a0c10] border border-slate-800 rounded-2xl p-4 text-center text-lg font-bold text-amber-400 placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-all"
-            />
-            <button
-              type="submit"
-              className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black rounded-2xl shadow-lg active:scale-95 transition-all text-sm"
-            >
-              دخول واستمرار 🚀
-            </button>
-          </form>
-        </div>
-      </main>
-    );
-  }
+    let pollCount = 0;
+    interval = setInterval(async () => {
+      pollCount++;
+      try {
+        const res = await fetch(`/api/rides/${lastRideId}`);
+        const ride: Ride = await res.json();
+        if (ride.status === "accepted" || ride.status === "cancelled" || ride.status === "completed") {
+          setStatus(ride.status);
+          setDriverName(ride.driverId || "السائق");
+          if (interval) clearInterval(interval);
+          if (pusher) pusher.unsubscribe(`ride-${lastRideId}`);
+        }
+        if (pollCount > 10) {
+          if (interval) clearInterval(interval);
+        }
+      } catch (e) { console.error(e); }
+    }, 3000);
+
+    return () => {
+      if (interval) clearInterval(interval);
+      if (pusher) {
+        try { pusher.unsubscribe(`ride-${lastRideId}`); } catch (e) {}
+      }
+    };
+  }, [lastRideId]);
 
   return (
-    <main className="min-h-screen bg-[#0a0c10] text-white flex flex-col items-center justify-start p-4 font-sans relative" dir="rtl">
-      {/* إشعار منبثق مرئي (Toast Notification) */}
-      {toastMessage && (
-        <div className="fixed top-4 z-50 bg-amber-500 text-slate-950 px-5 py-3 rounded-2xl shadow-2xl font-black text-xs animate-bounce flex items-center gap-2 border-2 border-white/20">
-          <span>🔔</span>
-          <span>{toastMessage}</span>
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 flex items-center justify-center">
+      <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-white/50">
+        <div className="flex justify-between items-center mb-2">
+          <h1 className="text-2xl font-bold text-indigo-600">🚗 ركشتك</h1>
+          <span className="text-sm font-semibold text-gray-700">👋 {userName}</span>
         </div>
-      )}
-
-      {/* شريط حساب المستخدم */}
-      <div className="w-full max-w-md bg-[#12161f] border border-slate-800/80 px-4 py-2.5 rounded-2xl mb-4 flex items-center justify-between text-xs">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-slate-400">حسابك:</span>
-          <span className="font-bold text-amber-400" dir="ltr">{userPhone}</span>
+        {/* عرض رقم الحساب مع زر التعديل */}
+        <div className="flex justify-between items-center mb-4 text-xs bg-gray-100 p-2 rounded-xl">
+          <span className="text-gray-600">🏦 {bankAccount || "لم يضف حساباً"}</span>
+          <button onClick={updateBankAccount} className="text-blue-500 underline font-bold">تعديل</button>
         </div>
-        <button onClick={handleLogout} className="text-[10px] text-slate-500 hover:text-red-400 underline">
-          تغيير الرقم
-        </button>
-      </div>
 
-      {/* التبديل بين الراكب والسائق */}
-      <div className="w-full max-w-md bg-[#12161f] p-1.5 rounded-2xl flex border border-slate-800/80 mb-6 shadow-lg">
-        <button
-          onClick={() => setActiveTab("passenger")}
-          className={`flex-1 py-3 text-sm font-extrabold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 ${
-            activeTab === "passenger" ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md" : "text-slate-400"
-          }`}
-        >
-          <span>🙋‍♂️</span> راكب
-        </button>
-        <button
-          onClick={() => setActiveTab("driver")}
-          className={`flex-1 py-3 text-sm font-extrabold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 ${
-            activeTab === "driver" ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md" : "text-slate-400"
-          }`}
-        >
-          <span>🛺</span> سائق
-        </button>
-      </div>
-
-      <div className="w-full max-w-md">
-        {/* واجهة الراكب */}
-        {activeTab === "passenger" && (
-          <>
-            {showRating ? (
-              <div className="bg-[#12161f] border border-slate-800 p-6 rounded-3xl text-center space-y-5 shadow-2xl">
-                <h3 className="text-xl font-black text-white">وصلت بسلامة الله!</h3>
-                <button onClick={handleSubmitRating} className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-extrabold rounded-2xl">
-                  إغلاق
-                </button>
-              </div>
-            ) : activeRide ? (
-              <div className="bg-[#12161f] border border-slate-800 p-5 rounded-3xl space-y-4 shadow-xl">
-                <div className="text-center space-y-1">
-                  <h3 className="text-base font-bold text-amber-400">
-                    {activeRide.status === "accepted" ? "تم قبول طلبك! السائق في الطريق 🚀" : "جاري البحث عن سائق قريب... ⏳"}
-                  </h3>
-                </div>
-                
-                <div className="h-44 rounded-2xl overflow-hidden border border-slate-800">
-                  <DynamicMap center={[17.7022, 33.9822]} pickupName={activeRide.pickup_location || activeRide.pickupLocation} />
-                </div>
-
-                <div className="bg-[#0a0c10] p-4 rounded-2xl border border-slate-800/80 space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">الانطلاق:</span>
-                    <span className="font-bold text-white">{activeRide.pickup_location || activeRide.pickupLocation}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">الوجهة:</span>
-                    <span className="font-bold text-white">{activeRide.destination}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">السعر:</span>
-                    <span className="font-bold text-emerald-400">{activeRide.offered_price || activeRide.offeredPrice} ج.س</span>
-                  </div>
-                </div>
-
-                {/* الاتصال بالسائق للراكب */}
-                {extractDriverPhone(activeRide) ? (
-                  <a
-                    href={`tel:${extractDriverPhone(activeRide)}`}
-                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-2xl shadow-lg flex items-center justify-center gap-2 text-sm animate-bounce"
-                  >
-                    <span>📞</span> الاتصال بالسائق ({extractDriverPhone(activeRide)})
-                  </a>
-                ) : (
-                  <div className="text-center text-xs text-amber-400 py-3 bg-amber-500/10 rounded-2xl border border-amber-500/20">
-                    ⏳ بانتظار قبول أي سائق للرحلة ليظهر رقمه هنا...
-                  </div>
-                )}
-
-                <button onClick={handleCompleteRide} className="w-full py-3 bg-emerald-600 text-white font-bold rounded-2xl text-xs">
-                  ✅ اكتملت الرحلة
-                </button>
-              </div>
-            ) : (
-              <div className="bg-[#12161f] border border-slate-800 p-5 rounded-3xl space-y-4 shadow-xl">
-                <div className="text-center space-y-1">
-                  <h2 className="text-xl font-black text-white">تفاصيل المشوار 🛺</h2>
-                </div>
-
-                <div className="h-48 rounded-2xl overflow-hidden border border-slate-800">
-                  <DynamicMap center={[17.7022, 33.9822]} pickupName={pickup || "عطبرة"} />
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">من (نقطة الانطلاق)</label>
-                    <input
-                      type="text"
-                      value={pickup}
-                      onChange={(e) => setPickup(e.target.value)}
-                      placeholder="مثال: عطبرة - السياله"
-                      className="w-full bg-[#0a0c10] border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-1.5">إلى (الوجهة)</label>
-                    <input
-                      type="text"
-                      value={destination}
-                      onChange={(e) => setDestination(e.target.value)}
-                      placeholder="مثال: المربعات"
-                      className="w-full bg-[#0a0c10] border border-slate-800 rounded-2xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleCreateRide}
-                  disabled={loading}
-                  className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-extrabold rounded-2xl shadow-lg text-sm mt-2"
-                >
-                  {loading ? "جاري الإرسال..." : "🚀 تأكيد وطلب الرحلة"}
-                </button>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* واجهة السائق */}
-        {activeTab === "driver" && (
-          <div className="bg-[#12161f] border border-slate-800 p-5 rounded-3xl space-y-4 shadow-xl">
-            {activeRide && (activeRide.driver_phone === userPhone || activeRide.driverPhone === userPhone) ? (
-              <div className="space-y-4">
-                <h3 className="text-base font-bold text-amber-400 text-center">مشوار جاري حالياً 🚀</h3>
-                
-                <div className="h-44 rounded-2xl overflow-hidden border border-slate-800">
-                  <DynamicMap center={[17.7022, 33.9822]} pickupName={activeRide.pickup_location || activeRide.pickupLocation} />
-                </div>
-
-                <div className="bg-[#0a0c10] p-4 rounded-2xl border border-slate-800/80 space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">نقطة الانطلاق:</span>
-                    <span className="font-bold text-white">{activeRide.pickup_location || activeRide.pickupLocation}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">الوجهة:</span>
-                    <span className="font-bold text-white">{activeRide.destination}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">المبلغ:</span>
-                    <span className="font-bold text-emerald-400">{activeRide.offered_price || activeRide.offeredPrice} ج.س</span>
-                  </div>
-                </div>
-
-                {extractPassengerPhone(activeRide) ? (
-                  <a
-                    href={`tel:${extractPassengerPhone(activeRide)}`}
-                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-2xl shadow-lg flex items-center justify-center gap-2 text-sm"
-                  >
-                    <span>📞</span> الاتصال بالراكب ({extractPassengerPhone(activeRide)})
-                  </a>
-                ) : (
-                  <div className="text-center text-xs text-red-400 py-2">لا يوجد رقم هاتف للراكب</div>
-                )}
-
-                <button onClick={handleCompleteRide} className="w-full py-3.5 bg-emerald-600 text-white font-extrabold rounded-2xl text-sm">
-                  ✅ إنهاء المشوار والتوصيل
-                </button>
-              </div>
-            ) : (
+        {status === "idle" || status === "cancelled" ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">📍 من</label>
+              <input type="text" value={from} onChange={(e) => setFrom(e.target.value)} placeholder="مثال: السوق الكبير" className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1">🏁 إلى</label>
+              <input type="text" value={to} onChange={(e) => setTo(e.target.value)} placeholder="مثال: الجامعة" className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none" />
+            </div>
+            <button onClick={createRide} disabled={loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-105 transition disabled:opacity-50">
+              {loading ? "جاري البحث..." : "🔍 بحث عن سائق"}
+            </button>
+            {status === "cancelled" && <p className="text-center text-red-600 font-bold">❌ تم الإلغاء</p>}
+          </div>
+        ) : (
+          <div className="text-center space-y-4 py-4">
+            {status === "searching" && (
               <>
-                <div className="text-center space-y-1">
-                  <h2 className="text-xl font-black text-white">طلبات الرحلات المتاحة 🛺</h2>
+                <div className="flex justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div></div>
+                <p className="text-indigo-600 font-bold text-xl">⏳ جاري البحث...</p>
+                <button onClick={cancelRide} className="text-red-600 underline text-sm font-bold">إلغاء الطلب</button>
+              </>
+            )}
+            {status === "accepted" && (
+              <>
+                <div className="text-green-500 text-6xl">✅</div>
+                <p className="text-green-700 font-bold text-2xl">تم القبول!</p>
+                <p className="text-gray-800 text-lg font-semibold">{driverName} في طريقه إليك 🚗</p>
+                <div className="bg-gray-100 p-3 rounded-xl text-sm text-gray-700 font-semibold">من: {from} → إلى: {to}</div>
+                <button
+                  onClick={() => {
+                    const shareUrl = `${window.location.origin}/track/${lastRideId}`;
+                    if (navigator.share) {
+                      navigator.share({ title: "تتبع رحلتي", text: "تابع موقعي لحظياً", url: shareUrl });
+                    } else {
+                      navigator.clipboard.writeText(shareUrl);
+                      alert("✅ تم نسخ رابط التتبع!");
+                    }
+                  }}
+                  className="mt-2 bg-blue-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-blue-600 transition"
+                >
+                  📤 مشاركة الرحلة
+                </button>
+                <button onClick={cancelRide} className="mt-2 text-red-600 underline text-sm font-bold block mx-auto">إلغاء</button>
+              </>
+            )}
+            {status === "completed" && (
+              <>
+                <p className="text-gray-800 text-xl font-bold">✅ الرحلة انتهت!</p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <button onClick={() => router.push(`/payment/${lastRideId}`)} className="bg-green-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-green-600 transition">💳 الدفع</button>
+                  <button onClick={() => router.push(`/rate/${lastRideId}`)} className="bg-yellow-500 text-white px-4 py-2 rounded-xl font-bold">⭐ تقييم</button>
+                  <button onClick={() => { setStatus("idle"); setLastRideId(null); setFrom(""); setTo(""); }} className="bg-indigo-500 text-white px-4 py-2 rounded-xl">طلب جديد</button>
                 </div>
-
-                {pendingRides.length === 0 ? (
-                  <div className="bg-[#0a0c10] border border-slate-800/80 rounded-2xl p-8 text-center space-y-2">
-                    <p className="text-2xl">⏳</p>
-                    <p className="text-xs text-slate-400">لا توجد طلبات رحلات جديدة حالياً</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {pendingRides.map((ride) => {
-                      const pPhone = extractPassengerPhone(ride);
-                      return (
-                        <div key={ride.id} className="bg-[#0a0c10] border border-slate-800/80 p-4 rounded-2xl space-y-3">
-                          <div className="space-y-1 text-xs">
-                            <div className="flex justify-between text-white">
-                              <span className="text-slate-400">من:</span>
-                              <span className="font-bold">{ride.pickup_location || ride.pickupLocation}</span>
-                            </div>
-                            <div className="flex justify-between text-white">
-                              <span className="text-slate-400">إلى:</span>
-                              <span className="font-bold">{ride.destination}</span>
-                            </div>
-                            <div className="flex justify-between text-amber-400 font-bold pt-1">
-                              <span>السعر المقترح:</span>
-                              <span>{ride.offered_price || ride.offeredPrice} ج.س</span>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            {pPhone ? (
-                              <a
-                                href={`tel:${pPhone}`}
-                                className="py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-1"
-                              >
-                                <span>📞</span> اتصال ({pPhone})
-                              </a>
-                            ) : (
-                              <button disabled className="py-2.5 bg-slate-800 text-slate-500 text-xs rounded-xl">
-                                بلا رقم
-                              </button>
-                            )}
-
-                            <button
-                              onClick={() => handleAcceptRide(ride)}
-                              className="py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-xs shadow-md"
-                            >
-                              قبول الطلب ✅
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </>
             )}
           </div>
         )}
+
+        <div className="mt-6 text-center text-xs text-gray-500 border-t border-gray-200 pt-4">
+          <a href="/driver" target="_blank" className="underline hover:text-indigo-600 font-medium">🚗 لوحة السائقين</a>
+          <span className="mx-2">|</span>
+          <button onClick={() => { localStorage.clear(); router.push("/login"); }} className="text-red-500 underline font-medium">تسجيل خروج</button>
+        </div>
       </div>
     </main>
   );
-}
+                          }
