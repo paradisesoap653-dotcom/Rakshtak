@@ -72,11 +72,21 @@ export default function DriverPage() {
                 </span>
                 <span className="text-xs text-slate-400">قبل دقيقتين</span>
               </div>
+
+              {/* تفاصيل الطلب والحساب البنكي */}
               <div className="text-sm space-y-1">
+                <p className="text-slate-300">👤 <b>العميل:</b> مسافر_9060</p>
                 <p className="text-slate-300">📍 <b>من:</b> السوق الكبير</p>
                 <p className="text-slate-300">🏁 <b>إلى:</b> حي المطار</p>
                 <p className="text-amber-400 font-bold">🤝 <b>العرض:</b> مقاولة / مفاصلة</p>
+                
+                {/* الحساب البنكي للعميل */}
+                <div className="mt-2 p-2 bg-[#161b22] border border-slate-800 rounded-xl text-xs flex items-center justify-between">
+                  <span className="text-slate-400">🏛️ الحساب البنكي:</span>
+                  <span className="text-emerald-400 font-mono font-bold">5438901</span>
+                </div>
               </div>
+
               <button className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow transition mt-2">
                 قبول المشوار 🤝
               </button>
