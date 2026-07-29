@@ -41,9 +41,13 @@ export default function DriverDashboard() {
     // 2. الاهتزاز
     if (navigator.vibrate) navigator.vibrate(300);
 
-    // 3. الإشعار المنبثق (مع التحقق الآمن)
+    // 3. الإشعار المنبثق (مع التحقق من السياق)
     try {
-      if ("Notification" in window && Notification.permission === "granted") {
+      if (
+        "Notification" in window &&
+        Notification.permission === "granted" &&
+        window.top === window // ليس داخل iframe
+      ) {
         new Notification("🚗 طلب رحلة جديد!", {
           body: `من: ${ride.pickupLocation} → إلى: ${ride.destination}`,
           icon: "https://img.icons8.com/color/48/000000/taxi.png",
@@ -169,6 +173,7 @@ export default function DriverDashboard() {
                 <p className="text-white font-bold text-lg">📍 {ride.pickupLocation}</p>
                 <p className="text-gray-300 text-lg mb-2">🏁 {ride.destination}</p>
                 <p className="text-gray-300 text-sm">👤 {ride.customerName || "مسافر"}</p>
+                <p className="text-gray-300 text-sm">📞 {ride.customerPhone || "غير متوفر"}</p>
                 {ride.bankAccount && (
                   <p className="text-blue-400 text-sm mb-2 font-semibold">🏦 الحساب: {ride.bankAccount}</p>
                 )}
@@ -187,4 +192,4 @@ export default function DriverDashboard() {
       </div>
     </div>
   );
-        }
+            }
