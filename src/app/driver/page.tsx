@@ -8,7 +8,7 @@ interface Ride {
   status: string;
   customerPhone?: string;
   customerName?: string;
-  bankAccount?: string; // <-- إضافة هذا
+  bankAccount?: string;
 }
 
 export default function DriverDashboard() {
@@ -24,6 +24,7 @@ export default function DriverDashboard() {
   };
 
   const notifyDriver = (ride: Ride) => {
+    // 1. الصوت
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioCtx.createOscillator();
@@ -37,15 +38,21 @@ export default function DriverDashboard() {
       oscillator.stop(audioCtx.currentTime + 0.6);
     } catch (e) {}
 
+    // 2. الاهتزاز
     if (navigator.vibrate) navigator.vibrate(300);
 
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification("🚗 طلب رحلة جديد!", {
-        body: `من: ${ride.pickupLocation} → إلى: ${ride.destination}`,
-        icon: "https://img.icons8.com/color/48/000000/taxi.png",
-        tag: "new-ride",
-        requireInteraction: true,
-      });
+    // 3. الإشعار المنبثق (مع التحقق الآمن)
+    try {
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("🚗 طلب رحلة جديد!", {
+          body: `من: ${ride.pickupLocation} → إلى: ${ride.destination}`,
+          icon: "https://img.icons8.com/color/48/000000/taxi.png",
+          tag: "new-ride",
+          requireInteraction: true,
+        });
+      }
+    } catch (e) {
+      console.warn("⚠️ لم نتمكن من إنشاء الإشعار");
     }
   };
 
@@ -162,7 +169,6 @@ export default function DriverDashboard() {
                 <p className="text-white font-bold text-lg">📍 {ride.pickupLocation}</p>
                 <p className="text-gray-300 text-lg mb-2">🏁 {ride.destination}</p>
                 <p className="text-gray-300 text-sm">👤 {ride.customerName || "مسافر"}</p>
-                {/* ===== عرض رقم الحساب البنكي ===== */}
                 {ride.bankAccount && (
                   <p className="text-blue-400 text-sm mb-2 font-semibold">🏦 الحساب: {ride.bankAccount}</p>
                 )}
@@ -181,4 +187,4 @@ export default function DriverDashboard() {
       </div>
     </div>
   );
-          }
+        }
