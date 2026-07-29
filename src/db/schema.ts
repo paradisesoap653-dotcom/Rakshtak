@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, timestamp, integer, doublePrecision, json } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, text, timestamp, integer, doublePrecision } from "drizzle-orm/pg-core";
 
 // ===== جدول المستخدمين =====
 export const users = pgTable("users", {
@@ -6,10 +6,12 @@ export const users = pgTable("users", {
   phone: varchar("phone", { length: 20 }).notNull().unique(),
   name: varchar("name", { length: 50 }).notNull(),
   role: varchar("role", { length: 20 }).notNull().default("rider"),
+  avgRating: doublePrecision("avg_rating").default(0),
+  totalRatings: integer("total_ratings").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// ===== جدول الرحلات (معدّل) =====
+// ===== جدول الرحلات =====
 export const rides = pgTable("rides", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
@@ -20,26 +22,21 @@ export const rides = pgTable("rides", {
   customerPhone: varchar("customer_phone", { length: 20 }),
   customerName: varchar("customer_name", { length: 50 }),
   driverId: varchar("driver_id", { length: 20 }),
-  
-  // ===== ميزة التتبع (النقطة 2) =====
   driverLat: doublePrecision("driver_lat"),
   driverLng: doublePrecision("driver_lng"),
-
-  // ===== ميزة التقييم (النقطة 3) =====
-  driverRating: integer("driver_rating"), // تقييم السائق من الراكب
-  riderRating: integer("rider_rating"),   // تقييم الراكب من السائق (اختياري)
+  driverRating: integer("driver_rating"),
+  riderRating: integer("rider_rating"),
   ratingComment: text("rating_comment"),
-
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// ===== جدول التقييمات (لتاريخ التقييمات) =====
+// ===== جدول التقييمات =====
 export const ratings = pgTable("ratings", {
   id: serial("id").primaryKey(),
   rideId: integer("ride_id").references(() => rides.id),
   fromUserId: integer("from_user_id").references(() => users.id),
   toUserId: integer("to_user_id").references(() => users.id),
-  rating: integer("rating").notNull(), // 1-5
+  rating: integer("rating").notNull(),
   comment: text("comment"),
   createdAt: timestamp("created_at").defaultNow(),
 });
