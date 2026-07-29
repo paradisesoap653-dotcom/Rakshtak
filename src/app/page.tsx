@@ -82,7 +82,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          serviceType: "ride",
+          serviceType: "ride", // قيمة ثابتة لأننا ما بنستخدمها
           pickupLocation: from,
           destination: to,
           userId: parseInt(userId),
@@ -181,7 +181,8 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-4 flex items-center justify-center">
-      <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-white/50">
+      <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl max-w-lg w-full p-6 border border-white/50">
+        {/* ===== الهيدر ===== */}
         <div className="flex justify-between items-center mb-2">
           <h1 className="text-2xl font-bold text-indigo-600">🚗 ركشتك</h1>
           <span className="text-sm font-semibold text-gray-700">👋 {userName}</span>
@@ -194,14 +195,31 @@ export default function Home() {
         {status === "idle" || status === "cancelled" ? (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">📍 من</label>
-              <input type="text" value={from} onChange={(e) => setFrom(e.target.value)} placeholder="مثال: السوق الكبير" className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none" />
+              <label className="block text-sm font-bold text-gray-700 mb-1">📍 من (نقطة الانطلاق)</label>
+              <input
+                type="text"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                placeholder="مثال: عطيرة - السوق الكبير"
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
             </div>
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">🏁 إلى</label>
-              <input type="text" value={to} onChange={(e) => setTo(e.target.value)} placeholder="مثال: الجامعة" className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none" />
+              <label className="block text-sm font-bold text-gray-700 mb-1">🏁 إلى (الوجهة)</label>
+              <input
+                type="text"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                placeholder="مثال: برير"
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
             </div>
-            <button onClick={createRide} disabled={loading} className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-105 transition disabled:opacity-50">
+
+            <button
+              onClick={createRide}
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-xl font-bold text-lg shadow-lg hover:scale-105 transition disabled:opacity-50"
+            >
               {loading ? "جاري البحث..." : "🔍 بحث عن سائق"}
             </button>
             {status === "cancelled" && <p className="text-center text-red-600 font-bold">❌ تم الإلغاء</p>}
@@ -211,45 +229,21 @@ export default function Home() {
             {status === "searching" && (
               <>
                 <div className="flex justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600"></div></div>
-                <p className="text-indigo-600 font-bold text-xl">⏳ جاري البحث...</p>
+                <p className="text-indigo-600 font-bold text-xl">⏳ جاري البحث عن سائق...</p>
                 <button onClick={cancelRide} className="text-red-600 underline text-sm font-bold">إلغاء الطلب</button>
               </>
             )}
             {status === "accepted" && (
               <>
                 <div className="text-green-500 text-6xl">✅</div>
-                <p className="text-green-700 font-bold text-2xl">تم القبول!</p>
+                <p className="text-green-700 font-bold text-2xl">تم قبول الرحلة!</p>
                 <p className="text-gray-800 text-lg font-semibold">{driverName} في طريقه إليك 🚗</p>
                 <div className="bg-gray-100 p-3 rounded-xl text-sm text-gray-700 font-semibold">من: {from} → إلى: {to}</div>
-                
-                {/* ===== الخريطة (عادت) ===== */}
                 <div className="mt-4 rounded-xl overflow-hidden shadow-md border border-gray-200">
-                  <iframe
-                    width="100%"
-                    height="200"
-                    style={{ border: 0 }}
-                    loading="lazy"
-                    allowFullScreen
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=32.0,15.0,33.0,16.0&layer=mapnik&marker=15.5,32.5`}
-                    title="خريطة الرحلة"
-                  ></iframe>
+                  <iframe width="100%" height="200" style={{ border: 0 }} loading="lazy" allowFullScreen src={`https://www.openstreetmap.org/export/embed.html?bbox=33.8,17.5,34.2,17.9&layer=mapnik&marker=17.7,34.0`} title="خريطة"></iframe>
                   <p className="text-xs text-gray-600 p-2 bg-white">📍 {from} → 🏁 {to}</p>
                 </div>
-
-                <button
-                  onClick={() => {
-                    const shareUrl = `${window.location.origin}/track/${lastRideId}`;
-                    if (navigator.share) {
-                      navigator.share({ title: "تتبع رحلتي", text: "تابع موقعي لحظياً", url: shareUrl });
-                    } else {
-                      navigator.clipboard.writeText(shareUrl);
-                      alert("✅ تم نسخ رابط التتبع!");
-                    }
-                  }}
-                  className="mt-2 bg-blue-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-blue-600 transition"
-                >
-                  📤 مشاركة الرحلة
-                </button>
+                <button onClick={() => { const shareUrl = `${window.location.origin}/track/${lastRideId}`; if (navigator.share) { navigator.share({ title: "تتبع رحلتي", text: "تابع موقعي لحظياً", url: shareUrl }); } else { navigator.clipboard.writeText(shareUrl); alert("✅ تم نسخ رابط التتبع!"); } }} className="mt-2 bg-blue-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-blue-600 transition">📤 مشاركة الرحلة</button>
                 <button onClick={cancelRide} className="mt-2 text-red-600 underline text-sm font-bold block mx-auto">إلغاء</button>
               </>
             )}
@@ -257,8 +251,8 @@ export default function Home() {
               <>
                 <p className="text-gray-800 text-xl font-bold">✅ الرحلة انتهت!</p>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  <button onClick={() => router.push(`/payment/${lastRideId}`)} className="bg-green-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-green-600 transition">💳 الدفع</button>
-                  <button onClick={() => router.push(`/rate/${lastRideId}`)} className="bg-yellow-500 text-white px-4 py-2 rounded-xl font-bold">⭐ تقييم</button>
+                  <button onClick={() => router.push(`/payment/${lastRideId}`)} className="bg-green-500 text-white px-4 py-2 rounded-xl font-bold hover:bg-green-600 transition">💳 الدفع (اختياري)</button>
+                  <button onClick={() => router.push(`/rate/${lastRideId}`)} className="bg-yellow-500 text-white px-4 py-2 rounded-xl font-bold">⭐ تقييم السائق</button>
                   <button onClick={() => { setStatus("idle"); setLastRideId(null); setFrom(""); setTo(""); }} className="bg-indigo-500 text-white px-4 py-2 rounded-xl">طلب جديد</button>
                 </div>
               </>
@@ -274,4 +268,4 @@ export default function Home() {
       </div>
     </main>
   );
-                                            }
+        }
