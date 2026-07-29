@@ -12,7 +12,7 @@ export default function PassengerPage() {
 
   return (
     <div className="min-h-screen bg-[#0d1117] text-slate-100 p-4 flex flex-col items-center justify-center">
-      <div className="w-full max-max-w-md bg-[#161b22] border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-4">
+      <div className="w-full max-w-md bg-[#161b22] border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-4">
         
         {/* الهيدر مع معلومات المستخدم */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
