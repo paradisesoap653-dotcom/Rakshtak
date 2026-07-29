@@ -6,6 +6,7 @@ export const users = pgTable("users", {
   phone: varchar("phone", { length: 20 }).notNull().unique(),
   name: varchar("name", { length: 50 }).notNull(),
   role: varchar("role", { length: 20 }).notNull().default("rider"),
+  bankAccount: varchar("bank_account", { length: 50 }),
   avgRating: doublePrecision("avg_rating").default(0),
   totalRatings: integer("total_ratings").default(0),
   createdAt: timestamp("created_at").defaultNow(),
