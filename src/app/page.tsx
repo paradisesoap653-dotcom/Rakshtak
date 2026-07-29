@@ -35,7 +35,6 @@ export default function Home() {
     }
   }, [router]);
 
-  // ===== تعديل رقم الحساب =====
   const updateBankAccount = async () => {
     const newAccount = prompt("أدخل رقم حسابك البنكي (مثال: بنكك - 123456789):", bankAccount);
     if (newAccount === null) return;
@@ -187,7 +186,6 @@ export default function Home() {
           <h1 className="text-2xl font-bold text-indigo-600">🚗 ركشتك</h1>
           <span className="text-sm font-semibold text-gray-700">👋 {userName}</span>
         </div>
-        {/* عرض رقم الحساب مع زر التعديل */}
         <div className="flex justify-between items-center mb-4 text-xs bg-gray-100 p-2 rounded-xl">
           <span className="text-gray-600">🏦 {bankAccount || "لم يضف حساباً"}</span>
           <button onClick={updateBankAccount} className="text-blue-500 underline font-bold">تعديل</button>
@@ -223,6 +221,21 @@ export default function Home() {
                 <p className="text-green-700 font-bold text-2xl">تم القبول!</p>
                 <p className="text-gray-800 text-lg font-semibold">{driverName} في طريقه إليك 🚗</p>
                 <div className="bg-gray-100 p-3 rounded-xl text-sm text-gray-700 font-semibold">من: {from} → إلى: {to}</div>
+                
+                {/* ===== الخريطة (عادت) ===== */}
+                <div className="mt-4 rounded-xl overflow-hidden shadow-md border border-gray-200">
+                  <iframe
+                    width="100%"
+                    height="200"
+                    style={{ border: 0 }}
+                    loading="lazy"
+                    allowFullScreen
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=32.0,15.0,33.0,16.0&layer=mapnik&marker=15.5,32.5`}
+                    title="خريطة الرحلة"
+                  ></iframe>
+                  <p className="text-xs text-gray-600 p-2 bg-white">📍 {from} → 🏁 {to}</p>
+                </div>
+
                 <button
                   onClick={() => {
                     const shareUrl = `${window.location.origin}/track/${lastRideId}`;
@@ -261,4 +274,4 @@ export default function Home() {
       </div>
     </main>
   );
-                          }
+                                            }
