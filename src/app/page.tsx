@@ -16,38 +16,37 @@ export default function HomePage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // هنا يتم إرسال البيانات لـ Supabase
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1117] text-slate-100 p-4 flex flex-col items-center justify-center">
-      <div className="w-full max-w-md bg-[#161b22] border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-4">
+    <div className="min-h-screen bg-[#0d1117] text-slate-100 p-3 pt-6 flex flex-col items-center justify-start">
+      
+      {/* شريط علوي سريع للانتقال للسائق */}
+      <div className="w-full max-w-md flex justify-between items-center mb-3 px-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🛺</span>
+          <span className="font-bold text-base text-white">ركشتك</span>
+        </div>
+        <Link
+          href="/driver"
+          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-full shadow-lg transition flex items-center gap-1.5"
+        >
+          <span>🚖</span> لوحة السائق
+        </Link>
+      </div>
+
+      <div className="w-full max-w-md bg-[#161b22] border border-slate-800 rounded-3xl p-4 shadow-2xl space-y-4">
         
-        {/* الهيدر مع زر السائق */}
+        {/* الهيدر الداخلي مع معرف المستخدم */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🛺</span>
-            <div>
-              <h1 className="font-bold text-lg text-white">ركشتك</h1>
-              <p className="text-[10px] text-slate-400">عطبرة، السودان</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <span className="bg-slate-800 text-amber-400 text-xs px-2.5 py-1 rounded-full border border-slate-700">
-              مسافر_9060 ✋
-            </span>
-            <Link
-              href="/driver"
-              className="bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30 text-xs px-2.5 py-1 rounded-full font-bold transition flex items-center gap-1"
-            >
-              <span>🚖</span> السائق
-            </Link>
-          </div>
+          <span className="text-[10px] text-slate-400">عطبرة، السودان</span>
+          <span className="bg-slate-800 text-amber-400 text-xs px-2.5 py-0.5 rounded-full border border-slate-700">
+            مسافر_9060 ✋
+          </span>
         </div>
 
         {/* الخريطة */}
-        <div className="w-full h-44 rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
+        <div className="w-full h-40 rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
           <Map pickupName={pickup || "موقعك الحالي"} />
         </div>
 
@@ -63,7 +62,7 @@ export default function HomePage() {
               value={pickup}
               onChange={(e) => setPickup(e.target.value)}
               placeholder="مثال: السوق الكبير - عطبرة"
-              className="w-full bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+              className="w-full bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
             />
           </div>
 
@@ -76,7 +75,7 @@ export default function HomePage() {
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
               placeholder="مثال: حي المطار / بربر"
-              className="w-full bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+              className="w-full bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
             />
           </div>
 
@@ -88,7 +87,7 @@ export default function HomePage() {
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="أدخل السعر المبدئي بالجنيه"
-              className="w-full bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
+              className="w-full bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
             />
           </div>
 
@@ -101,7 +100,7 @@ export default function HomePage() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="0912345678"
-              className="w-full bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono"
+              className="w-full bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono"
             />
           </div>
 
@@ -113,13 +112,13 @@ export default function HomePage() {
               value={bankAccount}
               onChange={(e) => setBankAccount(e.target.value)}
               placeholder="أدخل رقم حسابك للتحويل"
-              className="w-full bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono"
+              className="w-full bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono"
             />
           </div>
 
           {/* وسيلة النقل */}
           <div>
-            <label className="text-xs text-slate-400 mb-1.5 block">وسيلة النقل:</label>
+            <label className="text-xs text-slate-400 mb-1 block">وسيلة النقل:</label>
             <div className="grid grid-cols-3 gap-2">
               {(["ركشة", "توك توك", "تاكسي"] as const).map((type) => (
                 <button
