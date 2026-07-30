@@ -74,7 +74,12 @@ export default function HomePage() {
             (payload) => {
               if (payload.new.status === "accepted") {
                 setTripStatus("تم قبول مشوارك من قبل السائق! 🛺🎉");
-                setIsLoading(false);
+              } else if (payload.new.status === "completed") {
+                setTripStatus("تم إنهاء المشوار بنجاح.. نتمنى لك رحلة سعيدة! 🎉");
+                setTimeout(() => {
+                  setTripStatus(null);
+                  setIsLoading(false);
+                }, 4000);
               }
             }
           )
