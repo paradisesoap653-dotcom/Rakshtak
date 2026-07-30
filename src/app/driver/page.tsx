@@ -14,6 +14,7 @@ interface Ride {
   offered_price: number | null;
   service_type: string;
   status: "pending" | "accepted" | "completed";
+  driver_phone?: string;
 }
 
 export default function DriverDashboard() {
@@ -26,7 +27,6 @@ export default function DriverDashboard() {
   const [currentRide, setCurrentRide] = useState<Ride | null>(null);
   const [activeTab, setActiveTab] = useState<"available" | "current">("available");
 
-  // استرجاع بيانات السائق المخزنة
   useEffect(() => {
     const savedPhone = localStorage.getItem("driver_phone");
     const savedBank = localStorage.getItem("driver_bank");
@@ -67,7 +67,6 @@ export default function DriverDashboard() {
     setBankAccount("");
   };
 
-  // جلب الطلبات والتحكم بها
   useEffect(() => {
     if (!isDriverLoggedIn) return;
 
@@ -106,6 +105,9 @@ export default function DriverDashboard() {
               );
             } else if (updated.status === "accepted") {
               setAvailableRides((prev) => prev.filter((r) => r.id !== updated.id));
+              if (currentRide?.id === updated.id || !currentRide) {
+                setCurrentRide(updated);
+              }
             } else if (updated.status === "completed") {
               if (currentRide?.id === updated.id) {
                 setCurrentRide(null);
@@ -125,13 +127,17 @@ export default function DriverDashboard() {
   const acceptRide = async (ride: Ride) => {
     const { error } = await supabase
       .from("rides")
-      .update({ status: "accepted" })
+      .update({ 
+        status: "accepted",
+        driver_phone: driverPhone 
+      })
       .eq("id", ride.id);
 
     if (error) {
-      alert("خطأ أثناء قبول الطلب: " + error.message);
+      alert("خطأ أثناء قبول الطلب (تأكد من إضافة عمود driver_phone في قاعدة البيانات): " + error.message);
     } else {
-      setCurrentRide(ride);
+      const updatedRide = { ...ride, status: "accepted" as const, driver_phone: driverPhone };
+      setCurrentRide(updatedRide);
       setActiveTab("current");
     }
   };
@@ -153,7 +159,6 @@ export default function DriverDashboard() {
   return (
     <div className="min-h-screen bg-[#0d1117] text-slate-100 p-3 pt-4 flex flex-col items-center justify-start">
       
-      {/* شريط علوي */}
       <div className="w-full max-w-md flex justify-between items-center mb-3 px-1">
         <Link
           href="/"
@@ -170,7 +175,6 @@ export default function DriverDashboard() {
       <div className="w-full max-w-md bg-[#161b22] border border-slate-800 rounded-3xl p-4 shadow-2xl space-y-4">
 
         {!isDriverLoggedIn ? (
-          /* شاشة تسجيل دخول السائق برقم الهاتف ورقم الحساب */
           <form onSubmit={handleDriverLogin} className="space-y-4 py-6">
             <div className="text-center space-y-1">
               <h2 className="text-base font-bold text-white">تسجيل دخول السائق 🚖</h2>
@@ -178,10 +182,12 @@ export default function DriverDashboard() {
             </div>
 
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">📞 رقم الهاتف:</label>
-              <div className="flex dir-ltr border border-slate-800 rounded-xl overflow-hidden bg-[#0d1117] focus-within:border-amber-500">
-                <span className="bg-slate-800 text-amber-400 px-3 py-2 text-xs font-mono flex items-center border-r border-slate-700 font-bold">
-                  🇸🇩 +249
+              <label className="text-xs text-slate-400 mb-1 block text-right">📞 رقم الهاتف:</label>
+              {/* تعديل اتجاه الحقل لضمان عدم انقلاب الرقم وعرض +249 بشكل صحيح */}
+              <div className="flex items-center border border-slate-800 rounded-xl overflow-hidden bg-[#0d1117] focus-within:border-amber-500" dir="ltr">
+                <span className="bg-slate-800 text-amber-400 px-3 py-2.5 text-xs font-mono font-bold border-r border-slate-700 flex items-center gap-1">
+                  <span>+249</span>
+                  <span>🇸🇩</span>
                 </span>
                 <input
                   type="tel"
@@ -189,20 +195,20 @@ export default function DriverDashboard() {
                   value={driverPhone.replace("+249", "")}
                   onChange={(e) => setDriverPhone(e.target.value.replace(/\D/g, ""))}
                   placeholder="913009060"
-                  className="w-full bg-transparent px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none font-mono"
+                  className="w-full bg-transparent px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none font-mono text-left"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">🏦 رقم الحساب البنكي (بنكك/صكوك):</label>
+              <label className="text-xs text-slate-400 mb-1 block text-right">🏦 رقم الحساب البنكي (بنكك/صكوك):</label>
               <input
                 type="text"
                 required
                 value={bankAccount}
                 onChange={(e) => setBankAccount(e.target.value)}
                 placeholder="أدخل رقم الحساب البنكي"
-                className="w-full bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none font-mono"
+                className="w-full bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none font-mono text-right"
               />
             </div>
 
@@ -214,7 +220,6 @@ export default function DriverDashboard() {
             </button>
           </form>
         ) : (
-          /* لوحة تحكم السائق بعد تسجيل الدخول */
           <>
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="text-[10px] text-slate-400 space-y-0.5">
@@ -248,7 +253,6 @@ export default function DriverDashboard() {
               <Map pickupName={currentRide ? currentRide.pickup_location : "موقعي الحالي"} />
             </div>
 
-            {/* أزرار التبديل */}
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setActiveTab("available")}
@@ -295,8 +299,15 @@ export default function DriverDashboard() {
                             💰 السعر المقترح: <span dir="ltr">{ride.offered_price} ج.س</span>
                           </div>
                         )}
-                        <div className="text-slate-400">
-                          📞 الهاتف: <span className="font-mono text-slate-200" dir="ltr">{ride.phone_number}</span>
+                        <div className="text-slate-400 flex items-center justify-between">
+                          <span>📞 الهاتف:</span>
+                          <a 
+                            href={`tel:${ride.phone_number}`} 
+                            className="font-mono text-amber-400 hover:underline font-bold" 
+                            dir="ltr"
+                          >
+                            {ride.phone_number}
+                          </a>
                         </div>
                       </div>
                       <button
@@ -329,8 +340,15 @@ export default function DriverDashboard() {
                           💰 السعر المقترح: <span dir="ltr">{currentRide.offered_price} ج.س</span>
                         </div>
                       )}
-                      <div className="text-slate-400">
-                        📞 الهاتف: <span className="font-mono text-slate-200" dir="ltr">{currentRide.phone_number}</span>
+                      <div className="text-slate-400 flex items-center justify-between">
+                        <span>📞 الهاتف:</span>
+                        <a 
+                          href={`tel:${currentRide.phone_number}`} 
+                          className="font-mono text-amber-400 hover:underline font-bold" 
+                          dir="ltr"
+                        >
+                          {currentRide.phone_number}
+                        </a>
                       </div>
                     </div>
 
