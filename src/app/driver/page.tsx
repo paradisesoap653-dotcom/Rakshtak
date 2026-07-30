@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import Map from "@/components/Map";
 import { supabase } from "@/lib/supabase";
 
@@ -159,19 +158,20 @@ export default function DriverDashboard() {
   return (
     <div className="min-h-screen bg-[#0d1117] text-slate-100 p-3 pt-4 flex flex-col items-center justify-start relative">
       
-      {/* شريط علوي مع مفتاح العودة للراكب مفعل ومرفوع لطبقة أعلى z-50 */}
-      <div className="w-full max-w-md flex justify-between items-center mb-4 px-1 z-50">
+      {/* شريط علوي مع زر التنقل المباشر */}
+      <div className="w-full max-w-md flex justify-between items-center mb-4 px-1 relative z-[999]">
         <div className="flex items-center gap-2">
           <span className="text-xl">🚖</span>
           <span className="font-bold text-base text-white">لوحة السائق</span>
         </div>
 
-        <Link
-          href="/"
-          className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold text-xs px-3.5 py-2 rounded-xl border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer z-50 shadow-lg"
+        <button
+          type="button"
+          onClick={() => { window.location.href = "/"; }}
+          className="bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 text-amber-400 font-bold text-xs px-3.5 py-2 rounded-xl border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer z-[999] shadow-lg"
         >
           <span>🛺</span> الرئيسية (الراكب)
-        </Link>
+        </button>
       </div>
 
       <div className="w-full max-w-md bg-[#161b22] border border-slate-800 rounded-3xl p-4 shadow-2xl space-y-4">
@@ -186,15 +186,15 @@ export default function DriverDashboard() {
             <div>
               <label className="text-xs text-slate-400 mb-1 block text-right">📞 رقم الهاتف:</label>
               
-              {/* ضبط الاتجاه القطعي من اليسار لليمين باستخدام style direct */}
               <div 
-                className="flex items-center border border-slate-800 rounded-xl overflow-hidden bg-[#0d1117] focus-within:border-amber-500" 
-                style={{ direction: "ltr" }}
+                className="flex items-stretch border border-slate-800 rounded-xl overflow-hidden bg-[#0d1117] focus-within:border-amber-500"
+                style={{ direction: 'ltr' }}
               >
-                <div className="bg-slate-800 text-amber-400 px-3 py-2.5 text-xs font-mono font-bold border-r border-slate-700 flex items-center gap-1 select-none">
+                <div className="bg-slate-800 text-amber-400 px-3 py-2.5 text-xs font-mono font-bold border-r border-slate-700 flex items-center gap-1.5 select-none shrink-0">
                   <span>🇸🇩</span>
-                  <span>+249</span>
+                  <span style={{ direction: 'ltr', unicodeBidi: 'isolate' }}>+249</span>
                 </div>
+
                 <input
                   type="tel"
                   required
@@ -202,6 +202,7 @@ export default function DriverDashboard() {
                   onChange={(e) => setDriverPhone(e.target.value.replace(/\D/g, ""))}
                   placeholder="913009060"
                   className="w-full bg-transparent px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none font-mono text-left"
+                  style={{ direction: 'ltr' }}
                 />
               </div>
             </div>
