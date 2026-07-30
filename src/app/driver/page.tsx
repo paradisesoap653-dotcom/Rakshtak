@@ -1,38 +1,51 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Map from "@/components/Map";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import Map from "@/components/Map";
+
+interface Ride {
+  id: string;
+  passenger_name: string;
+  phone_number: string;
+  bank_account: string;
+  pickup_location: string;
+  destination: string;
+  offered_price: number | null;
+  service_type: string;
+  status: string;
+  created_at: string;
+}
 
 export default function DriverPage() {
-  const [isAvailable, setIsAvailable] = useState(true);
-  const [activeTab, setActiveTab] = useState<"requests" | "myTrip">("requests");
-  const [requests, setRequests] = useState<any[]>([]);
+  const [rides, setRides] = useState<Ride[]>([]);
+  const [activeTab, setActiveTab] = useState<"available" | "active">("available");
+  const [loading, setLoading] = useState(true);
 
-  // دالة لتشغيل صوت التنبيه عند وصول طلب جديد
-  const playNotificationSound = () => {
-    try {
-      const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
-      audio.play().catch((e) => console.log("Audio play blocked:", e));
-    } catch (err) {
-      console.log(err);
+  // جلب الطلبات
+  const fetchRides = async () => {
+    const { data, error } = await supabase
+      .from("rides")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setRides(data);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
-    fetchRequests();
+    fetchRides();
 
-    // الاستماع للطلبات الجديدة في الوقت الفعلي مع تشغيل الجرس
+    // الاستماع المباشر للطلبات الجديدة والتحديثات
     const channel = supabase
-      .channel("driver-realtime-v2")
+      .channel("driver-rides")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "rides" },
-        (payload) => {
-          if (payload.new.status === "pending") {
-            setRequests((prev) => [payload.new, ...prev]);
-            playNotificationSound(); // 🔔 تشغيل جرس التنبيه
-          }
+        { event: "*", schema: "public", table: "rides" },
+        () => {
+          fetchRides();
         }
       )
       .subscribe();
@@ -42,139 +55,196 @@ export default function DriverPage() {
     };
   }, []);
 
-  const fetchRequests = async () => {
-    const { data, error } = await supabase
-      .from("rides")
-      .select("*")
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      setRequests(data);
-    }
-  };
-
-  const acceptTrip = async (tripId: string) => {
+  // دالة قبول الطلب
+  const acceptRide = async (id: string) => {
     const { error } = await supabase
       .from("rides")
       .update({ status: "accepted" })
-      .eq("id", tripId);
+      .eq("id", id);
 
-    if (!error) {
-      alert("تم قبول المشوار بنجاح! 🤝");
-      fetchRequests();
+    if (error) {
+      alert("حدث خطأ أثناء قبول الطلب: " + error.message);
     } else {
-      alert("حدث خطأ أثناء قبول المشوار: " + error.message);
+      setActiveTab("active");
     }
   };
 
+  // دالة إنهاء المشوار
+  const completeRide = async (id: string) => {
+    const { error } = await supabase
+      .from("rides")
+      .update({ status: "completed" })
+      .eq("id", id);
+
+    if (error) {
+      alert("حدث خطأ أثناء إنهاء المشوار: " + error.message);
+    } else {
+      alert("تم إنهاء المشوار بنجاح! 🚀");
+      setActiveTab("available");
+    }
+  };
+
+  const availableRides = rides.filter((r) => r.status === "pending");
+  const activeRides = rides.filter((r) => r.status === "accepted");
+
   return (
-    <div className="min-h-screen bg-[#0d1117] text-slate-100 p-4 flex flex-col items-center justify-center">
-      <div className="w-full max-w-md bg-[#161b22] border border-slate-800 rounded-3xl p-5 shadow-2xl space-y-4">
+    <div className="min-h-screen bg-[#0d1117] text-slate-100 p-3 pt-4 flex flex-col items-center justify-start">
+      <div className="w-full max-w-md bg-[#161b22] border border-slate-800 rounded-3xl p-4 shadow-2xl space-y-4">
         
         {/* الهيدر */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🛺</span>
             <div>
-              <h1 className="font-bold text-lg text-white">لوحة السائق</h1>
+              <h1 className="font-bold text-base text-white">لوحة السائق</h1>
               <p className="text-[10px] text-slate-400">عطبرة، السودان</p>
             </div>
           </div>
-          
-          <button
-            onClick={() => setIsAvailable(!isAvailable)}
-            className={`px-3 py-1 rounded-full text-xs font-bold transition ${
-              isAvailable
-                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                : "bg-rose-500/20 text-rose-400 border border-rose-500/40"
-            }`}
-          >
-            {isAvailable ? "متاح للطلبات 🟢" : "غير متاح 🔴"}
-          </button>
+          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs px-2.5 py-1 rounded-full font-bold">
+            🟢 متاح للطلبات
+          </span>
         </div>
 
         {/* الخريطة */}
-        <div className="w-full h-40 rounded-2xl overflow-hidden border border-slate-800 shadow-inner">
+        <div className="w-full h-36 rounded-2xl overflow-hidden border border-slate-800">
           <Map pickupName="موقعك الحالي" />
         </div>
 
-        {/* التبويبات */}
+        {/* أزرار التبديل */}
         <div className="grid grid-cols-2 gap-2 bg-[#0d1117] p-1 rounded-xl border border-slate-800">
           <button
-            onClick={() => setActiveTab("requests")}
+            onClick={() => setActiveTab("available")}
             className={`py-2 text-xs font-bold rounded-lg transition ${
-              activeTab === "requests" ? "bg-amber-500 text-slate-950 shadow" : "text-slate-400 hover:text-white"
+              activeTab === "available"
+                ? "bg-amber-500 text-slate-950"
+                : "text-slate-400 hover:text-white"
             }`}
           >
-            الطلبات المتاحة 📥 ({requests.length})
+            الطلبات المتاحة 🛎️ ({availableRides.length})
           </button>
           <button
-            onClick={() => setActiveTab("myTrip")}
+            onClick={() => setActiveTab("active")}
             className={`py-2 text-xs font-bold rounded-lg transition ${
-              activeTab === "myTrip" ? "bg-amber-500 text-slate-950 shadow" : "text-slate-400 hover:text-white"
+              activeTab === "active"
+                ? "bg-amber-500 text-slate-950"
+                : "text-slate-400 hover:text-white"
             }`}
           >
-            المشوار الحالي 🚕
+            المشوار الحالي 🚕 ({activeRides.length})
           </button>
         </div>
 
         {/* قائمة الطلبات */}
-        {activeTab === "requests" ? (
-          <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-            {requests.length === 0 ? (
-              <div className="text-center py-8 text-slate-500 text-xs">لا توجد طلبات متاحة حالياً... بانتظار الزبائن 🛎️</div>
+        <div className="space-y-3">
+          {loading ? (
+            <p className="text-center text-xs text-slate-500 py-6">جاري التحميل...</p>
+          ) : activeTab === "available" ? (
+            availableRides.length === 0 ? (
+              <p className="text-center text-xs text-slate-500 py-8">
+                🔔 لا توجد طلبات متاحة حالياً... بانتظار الزبائن
+              </p>
             ) : (
-              requests.map((trip) => (
-                <div key={trip.id} className="bg-[#0d1117] border border-amber-500/30 p-4 rounded-2xl space-y-2 shadow-lg">
-                  <div className="flex justify-between items-start">
-                    <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                      طلب {trip.service_type || "ركشة"}
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      {new Date(trip.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              availableRides.map((ride) => (
+                <div
+                  key={ride.id}
+                  className="bg-[#0d1117] border border-slate-800 rounded-2xl p-3.5 space-y-2.5"
+                >
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-amber-400">👤 {ride.passenger_name}</span>
+                    <span className="bg-slate-800 text-slate-300 px-2 py-0.5 rounded-md text-[10px]">
+                      {ride.service_type || "ركشة"}
                     </span>
                   </div>
 
-                  <div className="text-sm space-y-1.5">
-                    <p className="text-slate-200">👤 <b>العميل:</b> {trip.passenger_name || "مسافر"}</p>
-                    
-                    {/* رقم الهاتف واضح تماماً مع زر اتصال */}
-                    <div className="flex items-center justify-between bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 text-xs">📞 الهاتف:</span>
-                      <a 
-                        href={`tel:${trip.phone_number}`} 
-                        className="text-amber-400 font-mono font-bold text-xs hover:underline"
+                  <div className="text-xs space-y-1 text-slate-300">
+                    <p>📍 <strong>من:</strong> {ride.pickup_location}</p>
+                    <p>🏁 <strong>إلى:</strong> {ride.destination}</p>
+                    {ride.offered_price && (
+                      <p className="text-amber-400 font-bold">🤝 السعر: {ride.offered_price} ج.س</p>
+                    )}
+                  </div>
+
+                  {/* تفاصيل الاتصال والحساب */}
+                  <div className="bg-[#161b22] p-2.5 rounded-xl border border-slate-800 text-xs space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">📞 الهاتف:</span>
+                      <a
+                        href={`tel:${ride.phone_number}`}
+                        className="text-amber-400 font-mono font-bold hover:underline dir-ltr"
                       >
-                        {trip.phone_number || "غير متوفر"}
+                        {ride.phone_number || "غير محدد"}
                       </a>
                     </div>
-
-                    <p className="text-slate-300">📍 <b>من:</b> {trip.pickup_location}</p>
-                    <p className="text-slate-300">🏁 <b>إلى:</b> {trip.destination}</p>
-                    <p className="text-amber-400 font-bold">🤝 <b>العرض:</b> {trip.offered_price ? `${trip.offered_price} ج.س` : "مقاولة / مفاصلة"}</p>
-                    
-                    <div className="p-2 bg-[#161b22] border border-slate-800 rounded-xl text-xs flex items-center justify-between">
-                      <span className="text-slate-400">🏛️ الحساب البنكي:</span>
-                      <span className="text-emerald-400 font-mono font-bold">{trip.bank_account || "لم يضف حساباً"}</span>
-                    </div>
+                    {ride.bank_account && (
+                      <div className="flex justify-between items-center border-t border-slate-800/80 pt-1.5">
+                        <span className="text-slate-400">🏛️ الحساب البنكي:</span>
+                        <span className="text-slate-200 font-mono text-[11px]">{ride.bank_account}</span>
+                      </div>
+                    )}
                   </div>
 
                   <button
-                    onClick={() => acceptTrip(trip.id)}
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-md transition mt-2 active:scale-95"
+                    onClick={() => acceptRide(ride.id)}
+                    className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition"
                   >
-                    قبول المشوار 🤝
+                    قبول المشوار ✅
                   </button>
                 </div>
               ))
-            )}
-          </div>
-        ) : (
-          <div className="bg-[#0d1117] border border-slate-800 p-6 rounded-2xl text-center space-y-2">
-            <p className="text-slate-400 text-sm">لا يوجد مشوار نشط حالياً</p>
-          </div>
-        )}
+            )
+          ) : (
+            activeRides.length === 0 ? (
+              <p className="text-center text-xs text-slate-500 py-8">
+                🚕 لا يوجد مشوار قيد التنفيذ حالياً
+              </p>
+            ) : (
+              activeRides.map((ride) => (
+                <div
+                  key={ride.id}
+                  className="bg-[#0d1117] border border-amber-500/40 rounded-2xl p-3.5 space-y-3"
+                >
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-amber-400">👤 {ride.passenger_name} (مشوار جاري)</span>
+                    <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md text-[10px]">
+                      مقبول
+                    </span>
+                  </div>
+
+                  <div className="text-xs space-y-1 text-slate-300">
+                    <p>📍 <strong>من:</strong> {ride.pickup_location}</p>
+                    <p>🏁 <strong>إلى:</strong> {ride.destination}</p>
+                  </div>
+
+                  {/* زر الاتصال السريع بالعميل */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <a
+                      href={`tel:${ride.phone_number}`}
+                      className="py-2 text-center bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1"
+                    >
+                      📞 اتصال بالزبون
+                    </a>
+                    <a
+                      href={`https://wa.me/${ride.phone_number?.replace("+", "")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-2 text-center bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1"
+                    >
+                      💬 واتساب
+                    </a>
+                  </div>
+
+                  {/* زر إنهاء المشوار */}
+                  <button
+                    onClick={() => completeRide(ride.id)}
+                    className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs transition"
+                  >
+                    إكمال/إنهاء المشوار 🏁
+                  </button>
+                </div>
+              ))
+            )
+          )}
+        </div>
 
       </div>
     </div>
