@@ -134,7 +134,7 @@ export default function DriverDashboard() {
       .eq("id", ride.id);
 
     if (error) {
-      alert("خطأ أثناء قبول الطلب (تأكد من إضافة عمود driver_phone في قاعدة البيانات): " + error.message);
+      alert("خطأ أثناء قبول الطلب: " + error.message);
     } else {
       const updatedRide = { ...ride, status: "accepted" as const, driver_phone: driverPhone };
       setCurrentRide(updatedRide);
@@ -157,19 +157,21 @@ export default function DriverDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1117] text-slate-100 p-3 pt-4 flex flex-col items-center justify-start">
+    <div className="min-h-screen bg-[#0d1117] text-slate-100 p-3 pt-4 flex flex-col items-center justify-start relative">
       
-      <div className="w-full max-w-md flex justify-between items-center mb-3 px-1">
+      {/* شريط علوي مع مفتاح العودة للراكب مفعل ومرفوع لطبقة أعلى z-50 */}
+      <div className="w-full max-w-md flex justify-between items-center mb-4 px-1 z-50">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🚖</span>
+          <span className="font-bold text-base text-white">لوحة السائق</span>
+        </div>
+
         <Link
           href="/"
-          className="bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold text-xs px-3.5 py-1.5 rounded-full border border-slate-700 transition flex items-center gap-1.5"
+          className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-bold text-xs px-3.5 py-2 rounded-xl border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer z-50 shadow-lg"
         >
           <span>🛺</span> الرئيسية (الراكب)
         </Link>
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-base text-white">لوحة السائق</span>
-          <span className="text-xl">🚖</span>
-        </div>
       </div>
 
       <div className="w-full max-w-md bg-[#161b22] border border-slate-800 rounded-3xl p-4 shadow-2xl space-y-4">
@@ -183,12 +185,16 @@ export default function DriverDashboard() {
 
             <div>
               <label className="text-xs text-slate-400 mb-1 block text-right">📞 رقم الهاتف:</label>
-              {/* تعديل اتجاه الحقل لضمان عدم انقلاب الرقم وعرض +249 بشكل صحيح */}
-              <div className="flex items-center border border-slate-800 rounded-xl overflow-hidden bg-[#0d1117] focus-within:border-amber-500" dir="ltr">
-                <span className="bg-slate-800 text-amber-400 px-3 py-2.5 text-xs font-mono font-bold border-r border-slate-700 flex items-center gap-1">
-                  <span>+249</span>
+              
+              {/* ضبط الاتجاه القطعي من اليسار لليمين باستخدام style direct */}
+              <div 
+                className="flex items-center border border-slate-800 rounded-xl overflow-hidden bg-[#0d1117] focus-within:border-amber-500" 
+                style={{ direction: "ltr" }}
+              >
+                <div className="bg-slate-800 text-amber-400 px-3 py-2.5 text-xs font-mono font-bold border-r border-slate-700 flex items-center gap-1 select-none">
                   <span>🇸🇩</span>
-                </span>
+                  <span>+249</span>
+                </div>
                 <input
                   type="tel"
                   required
@@ -223,7 +229,7 @@ export default function DriverDashboard() {
           <>
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="text-[10px] text-slate-400 space-y-0.5">
-                <div>هاتف: <span className="font-mono text-slate-200" dir="ltr">{driverPhone}</span></div>
+                <div>هاتف: <span className="font-mono text-slate-200" style={{ direction: "ltr", display: "inline-block" }}>{driverPhone}</span></div>
                 <div>الحساب: <span className="font-mono text-slate-200">{bankAccount}</span></div>
               </div>
               <button
@@ -296,7 +302,7 @@ export default function DriverDashboard() {
                         <div>🏁 إلى: <span className="text-white font-medium">{ride.destination}</span></div>
                         {ride.offered_price && (
                           <div className="text-amber-400 font-bold font-mono">
-                            💰 السعر المقترح: <span dir="ltr">{ride.offered_price} ج.س</span>
+                            💰 السعر المقترح: <span style={{ direction: "ltr", display: "inline-block" }}>{ride.offered_price} ج.س</span>
                           </div>
                         )}
                         <div className="text-slate-400 flex items-center justify-between">
@@ -304,7 +310,7 @@ export default function DriverDashboard() {
                           <a 
                             href={`tel:${ride.phone_number}`} 
                             className="font-mono text-amber-400 hover:underline font-bold" 
-                            dir="ltr"
+                            style={{ direction: "ltr" }}
                           >
                             {ride.phone_number}
                           </a>
@@ -337,7 +343,7 @@ export default function DriverDashboard() {
                       <div>🏁 إلى: <span className="text-white font-medium">{currentRide.destination}</span></div>
                       {currentRide.offered_price && (
                         <div className="text-amber-400 font-bold font-mono">
-                          💰 السعر المقترح: <span dir="ltr">{currentRide.offered_price} ج.س</span>
+                          💰 السعر المقترح: <span style={{ direction: "ltr", display: "inline-block" }}>{currentRide.offered_price} ج.س</span>
                         </div>
                       )}
                       <div className="text-slate-400 flex items-center justify-between">
@@ -345,7 +351,7 @@ export default function DriverDashboard() {
                         <a 
                           href={`tel:${currentRide.phone_number}`} 
                           className="font-mono text-amber-400 hover:underline font-bold" 
-                          dir="ltr"
+                          style={{ direction: "ltr" }}
                         >
                           {currentRide.phone_number}
                         </a>
