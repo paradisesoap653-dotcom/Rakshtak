@@ -22,7 +22,7 @@ export default function Home() {
   const [pickupLocation, setPickupLocation] = useState("");
   const [destination, setDestination] = useState("");
   const [offeredPrice, setOfferedPrice] = useState("");
-  const [serviceType, setServiceType] = useState("ركشة");
+  const [serviceType, setServiceType] = useState("ركشة ركاب");
 
   const [activeRide, setActiveRide] = useState<Ride | null>(null);
   const [loading, setLoading] = useState(false);
@@ -164,8 +164,9 @@ export default function Home() {
                   onChange={(e) => setServiceType(e.target.value)}
                   className="w-full bg-[#0d1117] border border-slate-800 rounded-xl px-3 py-2 text-xs text-amber-400 font-bold focus:outline-none"
                 >
-                  <option value="ركشة">🛺 ركشة ركاب</option>
-                  <option value="موتر بضائع">🛺 موتر بضائع</option>
+                  <option value="ركشة ركاب">🛺 ركشة ركاب</option>
+                  <option value="توك توك بضائع">🛺 توك توك بضائع</option>
+                  <option value="تكسي">🚕 تكسي</option>
                 </select>
               </div>
             </div>
