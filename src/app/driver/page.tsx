@@ -158,7 +158,7 @@ export default function DriverDashboard() {
   return (
     <div className="min-h-screen bg-[#0d1117] text-slate-100 p-3 pt-4 flex flex-col items-center justify-start relative">
       
-      {/* شريط علوي مع زر التنقل المباشر */}
+      {/* شريط علوي مع زر التنقل المباشر المصلح */}
       <div className="w-full max-w-md flex justify-between items-center mb-4 px-1 relative z-[999]">
         <div className="flex items-center gap-2">
           <span className="text-xl">🚖</span>
@@ -183,6 +183,7 @@ export default function DriverDashboard() {
               <p className="text-xs text-slate-400">أدخل رقم هاتفك وحسابك البنكي للمتابعة</p>
             </div>
 
+            {/* حقل الهاتف المعدل للسائق (فارغ و placeholder عام) */}
             <div>
               <label className="text-xs text-slate-400 mb-1 block text-right">📞 رقم الهاتف:</label>
               
@@ -200,7 +201,7 @@ export default function DriverDashboard() {
                   required
                   value={driverPhone.replace("+249", "")}
                   onChange={(e) => setDriverPhone(e.target.value.replace(/\D/g, ""))}
-                  placeholder="913009060"
+                  placeholder="9XXXXXXXX"
                   className="w-full bg-transparent px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none font-mono text-left"
                   style={{ direction: 'ltr' }}
                 />
@@ -295,7 +296,7 @@ export default function DriverDashboard() {
                       <div className="flex justify-between items-center text-xs border-b border-slate-800 pb-2">
                         <span className="font-bold text-white">👤 {ride.passenger_name}</span>
                         <span className="bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-lg border border-amber-500/20 font-bold">
-                          {ride.service_type || "ركشة"}
+                          {ride.service_type || "ركشة ركاب"}
                         </span>
                       </div>
                       <div className="text-xs space-y-1 text-slate-300">
