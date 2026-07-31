@@ -27,36 +27,40 @@ export default function DriverDashboard() {
   const [activeTab, setActiveTab] = useState<"available" | "current">("available");
 
   useEffect(() => {
-    const savedPhone = localStorage.getItem("driver_phone");
-    const savedBank = localStorage.getItem("driver_bank");
-    if (savedPhone) {
-      setDriverPhone(savedPhone);
-      setBankAccount(savedBank || "");
-      setIsDriverLoggedIn(true);
+    if (typeof window !== "undefined") {
+      const savedPhone = localStorage.getItem("driver_phone");
+      const savedBank = localStorage.getItem("driver_bank");
+      if (savedPhone) {
+        setDriverPhone(savedPhone);
+        setBankAccount(savedBank || "");
+        setIsDriverLoggedIn(true);
+      }
     }
   }, []);
 
-  // 1. طلب إذن الإشعارات فور دخول السائق
+  // 1. طلب إذن الإشعارات بأمان
   useEffect(() => {
-    if (isDriverLoggedIn && "Notification" in window) {
-      Notification.requestPermission();
+    if (isDriverLoggedIn && typeof window !== "undefined" && "Notification" in window) {
+      Notification.requestPermission().catch(() => {});
     }
   }, [isDriverLoggedIn]);
 
-  // 2. تشغيل صوت التنبيه وتوليد إشعار عند زيادة عدد الطلبات المتاحة
+  // 2. تشغيل التنبيه الصوتي والإشعار عند وصول طلب جديد بأمان تكتيكي
   useEffect(() => {
-    if (availableRides.length > 0 && isDriverLoggedIn) {
-      // نغمة التنبيه
-      const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
-      audio.play().catch(() => {});
+    if (availableRides.length > 0 && isDriverLoggedIn && typeof window !== "undefined") {
+      try {
+        const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
+        audio.play().catch(() => {});
 
-      // إشعار شاشة النظام
-      if ("Notification" in window && Notification.permission === "granted") {
-        const latestRide = availableRides[0];
-        new Notification("طلب مشوار جديد! 🛺", {
-          body: `من: ${latestRide.pickup_location} - إلى: ${latestRide.destination}`,
-          icon: "/icon.png",
-        });
+        if ("Notification" in window && Notification.permission === "granted") {
+          const latestRide = availableRides[0];
+          new Notification("طلب مشوار جديد! 🛺", {
+            body: `من: ${latestRide.pickup_location || "الموقع"} - إلى: ${latestRide.destination || "الوجهة"}`,
+            icon: "/icon.png",
+          });
+        }
+      } catch (err) {
+        console.log("Audio notification error:", err);
       }
     }
   }, [availableRides.length, isDriverLoggedIn]);
@@ -183,7 +187,7 @@ export default function DriverDashboard() {
   return (
     <div className="min-h-screen bg-[#0d1117] text-slate-100 p-3 pt-4 flex flex-col items-center justify-start relative">
       
-      {/* شريط علوي مع زر التنقل المباشر المصلح */}
+      {/* شريط علوي */}
       <div className="w-full max-w-md flex justify-between items-center mb-4 px-1 relative z-[999]">
         <div className="flex items-center gap-2">
           <span className="text-xl">🚖</span>
@@ -208,7 +212,6 @@ export default function DriverDashboard() {
               <p className="text-xs text-slate-400">أدخل رقم هاتفك وحسابك البنكي للمتابعة</p>
             </div>
 
-            {/* حقل الهاتف المعدل للسائق */}
             <div>
               <label className="text-xs text-slate-400 mb-1 block text-right">📞 رقم الهاتف:</label>
               
