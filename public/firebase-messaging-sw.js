@@ -2,10 +2,10 @@ importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js');
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDummyKeyReplaceIfNeeded",
+  apiKey: "AIzaSyA3JahikJAKwhmcQ8_Nu9ZZvkZN1t891fs",
   authDomain: "rakshtak-b08e7.firebaseapp.com",
   projectId: "rakshtak-b08e7",
-  storageBucket: "rakshtak-b08e7.appspot.com",
+  storageBucket: "rakshtak-b08e7.firebasestorage.app",
   messagingSenderId: "553278409750",
   appId: "1:553278409750:web:3be527656ab7a2636e7937"
 };
