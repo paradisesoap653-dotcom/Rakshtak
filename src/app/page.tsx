@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import Map from "@/components/Map";
 import { supabase } from "@/lib/supabase";
 
@@ -188,20 +189,19 @@ export default function DriverDashboard() {
     <div className="min-h-screen bg-[#161b22] text-slate-100 p-4 flex flex-col justify-between w-full min-w-full">
       <div className="w-full max-w-xl mx-auto flex-1 flex flex-col justify-between space-y-4">
         
-        {/* الشريط العلوي */}
+        {/* الشريط العلوي مع زر التنقل المصلح */}
         <header className="flex justify-between items-center pt-2 pb-1">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🚖</span>
             <span className="font-extrabold text-xl text-white tracking-wide">لوحة السائق</span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => { window.location.href = "/"; }}
-            className="bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 text-amber-400 font-bold text-sm px-4 py-2.5 rounded-xl border border-amber-500/30 transition flex items-center gap-2 shadow-lg"
+          <Link
+            href="/"
+            className="bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 text-amber-400 font-bold text-sm px-4 py-2.5 rounded-xl border border-amber-500/30 transition flex items-center gap-2 shadow-lg cursor-pointer"
           >
             <span>🛺</span> الرئيسية (الراكب)
-          </button>
+          </Link>
         </header>
 
         {!isDriverLoggedIn ? (
