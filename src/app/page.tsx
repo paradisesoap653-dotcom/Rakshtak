@@ -36,7 +36,7 @@ export default function PassengerHome() {
       .in("status", ["pending", "accepted"])
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (data) {
       setActiveRide(data);
@@ -59,11 +59,7 @@ export default function PassengerHome() {
         },
         (payload) => {
           const updatedRide = payload.new;
-          if (updatedRide.status === "completed") {
-            setActiveRide(null);
-          } else {
-            setActiveRide(updatedRide);
-          }
+          setActiveRide(updatedRide);
         }
       )
       .subscribe();
@@ -247,7 +243,7 @@ export default function PassengerHome() {
                 <h3 className="text-base font-bold text-amber-400">جاري البحث عن سائق...</h3>
                 <p className="text-xs text-slate-400">تم نشر مشوارك للسائقين القريبين منك، يرجى الانتظار</p>
               </div>
-            ) : (
+            ) : activeRide.status === "accepted" ? (
               <div className="text-center space-y-2">
                 <span className="text-3xl inline-block">🎉</span>
                 <h3 className="text-base font-bold text-emerald-400">تم قبول طلبك! السائق في الطريق إليك</h3>
@@ -264,19 +260,35 @@ export default function PassengerHome() {
                   </div>
                 )}
               </div>
+            ) : (
+              /* الشاشة الاحتفالية عند وصول الهدف وإكمال المشوار */
+              <div className="text-center space-y-3 py-2">
+                <div className="text-5xl animate-bounce">🏁 🏁</div>
+                <h3 className="text-xl font-extrabold text-amber-400">الحمد لله على السلامة! 🎉</h3>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  تم إكمال المشوار ووصولك إلى وجهتك بنجاح ✨
+                </p>
+                <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 text-xs text-slate-400">
+                  شكراً لاستخدامك تطبيق <strong className="text-amber-400">رَكْشَتُك</strong> 🛺
+                </div>
+              </div>
             )}
 
             <div className="text-xs space-y-2 border-t border-b border-slate-800 py-3 text-slate-300">
-              <div>📍 **من:** {activeRide.pickup_location}</div>
-              <div>🏁 **إلى:** {activeRide.destination}</div>
-              {activeRide.offered_price && <div>💰 **السعر:** {activeRide.offered_price} ج.س</div>}
+              <div>📍 <strong>من:</strong> {activeRide.pickup_location}</div>
+              <div>🏁 <strong>إلى:</strong> {activeRide.destination}</div>
+              {activeRide.offered_price && <div>💰 <strong>السعر:</strong> {activeRide.offered_price} ج.س</div>}
             </div>
 
             <button
               onClick={() => setActiveRide(null)}
-              className="w-full py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-bold text-xs rounded-xl border border-red-500/30 transition"
+              className={`w-full py-3.5 font-extrabold text-xs rounded-xl transition shadow-lg ${
+                activeRide.status === "completed"
+                  ? "bg-amber-500 hover:bg-amber-400 text-slate-950"
+                  : "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30"
+              }`}
             >
-              إلغاء الطلب / طلب جديد
+              {activeRide.status === "completed" ? "طلب مشوار جديد 🚀" : "إلغاء الطلب"}
             </button>
           </div>
         )}
