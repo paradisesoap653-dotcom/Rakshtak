@@ -188,23 +188,22 @@ export default function DriverDashboard() {
     <div className="min-h-screen bg-[#161b22] text-slate-100 p-4 flex flex-col justify-between w-full min-w-full">
       <div className="w-full max-w-xl mx-auto flex-1 flex flex-col justify-between space-y-4">
         
-        {/* الشريط العلوي مع زر الانتقال المباشر */}
+        {/* الشريط العلوي مع زر إجباري للتنقل عبر JavaScript */}
         <header className="flex justify-between items-center pt-2 pb-1">
           <div className="flex items-center gap-2">
-            <span className="text-2xl">𚥟</span>
+            <span className="text-2xl">🚖</span>
             <span className="font-extrabold text-xl text-white tracking-wide">لوحة السائق</span>
           </div>
 
-          <a
-            href="/"
-            onClick={(e) => {
-              e.preventDefault();
-              window.location.href = "/";
+          <button
+            type="button"
+            onClick={() => {
+              window.location.replace("/");
             }}
             className="bg-amber-500/20 hover:bg-amber-500/30 active:scale-95 text-amber-400 font-bold text-sm px-4 py-2.5 rounded-xl border border-amber-500/40 transition flex items-center gap-2 shadow-lg cursor-pointer"
           >
             <span>🛺</span> الرئيسية (الراكب)
-          </a>
+          </button>
         </header>
 
         {!isDriverLoggedIn ? (
