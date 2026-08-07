@@ -23,6 +23,32 @@ export default function PassengerHome() {
     }
   }, []);
 
+  // الاستماع المباشر لتحديثات حالة الطلب عند قبول السائق له
+  useEffect(() => {
+    if (!activeRide?.id) return;
+
+    const channel = supabase
+      .channel(`passenger-ride-${activeRide.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "rides",
+          filter: `id=eq.${activeRide.id}`,
+        },
+        (payload) => {
+          const updatedRide = payload.new;
+          setActiveRide(updatedRide);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeRide?.id]);
+
   const handleCreateRide = async (e: React.FormEvent) => {
     e.preventDefault();
     let val = phoneNumber.replace(/\D/g, "");
@@ -86,15 +112,14 @@ export default function PassengerHome() {
           </button>
         </header>
 
-        {/* الخريطة ملء العرض */}
+        {/* الخريطة */}
         <div className="w-full h-52 rounded-2xl overflow-hidden border border-slate-700/60 shadow-xl shrink-0">
           <Map pickupName={pickupLocation || "موقعي الحالي"} />
         </div>
 
-        {/* النموذج كامل الشاشة والخطوط واضحة */}
+        {/* كارت النموذج أو حالة الطلب */}
         {!activeRide ? (
           <form onSubmit={handleCreateRide} className="space-y-4 flex-1 flex flex-col justify-center">
-            
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-slate-300 mb-1.5 block text-right">الاسم:</label>
@@ -192,11 +217,36 @@ export default function PassengerHome() {
           </form>
         ) : (
           <div className="bg-[#0d1117] border border-slate-700 rounded-2xl p-5 space-y-4 my-auto shadow-2xl">
-            <div className="text-center space-y-1">
-              <span className="text-3xl animate-bounce inline-block">⏳</span>
-              <h3 className="text-base font-bold text-amber-400">تم إرسال طلبك بنجاح!</h3>
-              <p className="text-xs text-slate-400">في انتظار قبول أقرب سائق للمشوار...</p>
-            </div>
+            {activeRide.status === "pending" ? (
+              <div className="text-center space-y-2">
+                <span className="text-3xl animate-bounce inline-block">⏳</span>
+                <h3 className="text-base font-bold text-amber-400">جاري البحث عن سائق...</h3>
+                <p className="text-xs text-slate-400">تم نشر مشوارك للسائقين القريبين منك، يرجى الانتظار</p>
+              </div>
+            ) : activeRide.status === "accepted" ? (
+              <div className="text-center space-y-2">
+                <span className="text-3xl inline-block">🎉</span>
+                <h3 className="text-base font-bold text-emerald-400">تم قبول طلبك! السائق في الطريق إليك</h3>
+                {activeRide.driver_phone && (
+                  <div className="pt-2">
+                    <p className="text-xs text-slate-400 mb-1">رقم هاتف السائق:</p>
+                    <a
+                      href={`tel:${activeRide.driver_phone}`}
+                      className="inline-block py-2.5 px-5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 font-mono font-bold text-sm rounded-xl border border-emerald-500/30 transition"
+                      style={{ direction: "ltr" }}
+                    >
+                      📞 {activeRide.driver_phone}
+                    </a>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center space-y-2">
+                <span className="text-3xl inline-block">🏁</span>
+                <h3 className="text-base font-bold text-white">تم اكتمال المشوار</h3>
+                <p className="text-xs text-slate-400">شكراً لاستخدامك تطبيق ركشتك!</p>
+              </div>
+            )}
 
             <div className="text-xs space-y-2 border-t border-b border-slate-800 py-3 text-slate-300">
               <div>📍 **من:** {activeRide.pickup_location}</div>
@@ -208,7 +258,7 @@ export default function PassengerHome() {
               onClick={() => setActiveRide(null)}
               className="w-full py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-bold text-xs rounded-xl border border-red-500/30 transition"
             >
-              إلغاء / طلب جديد
+              {activeRide.status === "completed" ? "طلب مشوار جديد 🛺" : "إلغاء الطلب"}
             </button>
           </div>
         )}
