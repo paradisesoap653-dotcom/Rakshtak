@@ -14,16 +14,36 @@ export default function PassengerHome() {
   const [loading, setLoading] = useState(false);
   const [activeRide, setActiveRide] = useState<any>(null);
 
+  // 1. استرجاع البيانات المنسوخة والتحقق من المشوار الحالي عند فتح الصفحة
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedName = localStorage.getItem("passenger_name");
       const savedPhone = localStorage.getItem("passenger_phone");
       if (savedName) setPassengerName(savedName);
-      if (savedPhone) setPhoneNumber(savedPhone);
+      if (savedPhone) {
+        setPhoneNumber(savedPhone);
+        checkExistingRide(savedPhone);
+      }
     }
   }, []);
 
-  // الاستماع المباشر لتحديثات حالة الطلب عند قبول السائق له
+  // دالة للبحث عن مشوار جاري أو معلق بنفس رقم الهاتف
+  const checkExistingRide = async (phone: string) => {
+    const { data } = await supabase
+      .from("rides")
+      .select("*")
+      .eq("phone_number", phone)
+      .in("status", ["pending", "accepted"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (data) {
+      setActiveRide(data);
+    }
+  };
+
+  // 2. الاستماع الفوري المباشر لتغييرات المشوار (قبول/إنهاء)
   useEffect(() => {
     if (!activeRide?.id) return;
 
@@ -39,7 +59,11 @@ export default function PassengerHome() {
         },
         (payload) => {
           const updatedRide = payload.new;
-          setActiveRide(updatedRide);
+          if (updatedRide.status === "completed") {
+            setActiveRide(null);
+          } else {
+            setActiveRide(updatedRide);
+          }
         }
       )
       .subscribe();
@@ -223,7 +247,7 @@ export default function PassengerHome() {
                 <h3 className="text-base font-bold text-amber-400">جاري البحث عن سائق...</h3>
                 <p className="text-xs text-slate-400">تم نشر مشوارك للسائقين القريبين منك، يرجى الانتظار</p>
               </div>
-            ) : activeRide.status === "accepted" ? (
+            ) : (
               <div className="text-center space-y-2">
                 <span className="text-3xl inline-block">🎉</span>
                 <h3 className="text-base font-bold text-emerald-400">تم قبول طلبك! السائق في الطريق إليك</h3>
@@ -240,12 +264,6 @@ export default function PassengerHome() {
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="text-center space-y-2">
-                <span className="text-3xl inline-block">🏁</span>
-                <h3 className="text-base font-bold text-white">تم اكتمال المشوار</h3>
-                <p className="text-xs text-slate-400">شكراً لاستخدامك تطبيق ركشتك!</p>
-              </div>
             )}
 
             <div className="text-xs space-y-2 border-t border-b border-slate-800 py-3 text-slate-300">
@@ -258,7 +276,7 @@ export default function PassengerHome() {
               onClick={() => setActiveRide(null)}
               className="w-full py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-bold text-xs rounded-xl border border-red-500/30 transition"
             >
-              {activeRide.status === "completed" ? "طلب مشوار جديد 🛺" : "إلغاء الطلب"}
+              إلغاء الطلب / طلب جديد
             </button>
           </div>
         )}
