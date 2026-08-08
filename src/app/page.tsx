@@ -14,7 +14,7 @@ export default function PassengerHome() {
   const [loading, setLoading] = useState(false);
   const [activeRide, setActiveRide] = useState<any>(null);
 
-  // 1. استرجاع البيانات المنسوخة والتحقق من المشوار الحالي عند فتح الصفحة
+  // 1. استرجاع البيانات والتحقق من آخر مشوار تم إنشاؤه
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedName = localStorage.getItem("passenger_name");
@@ -27,23 +27,26 @@ export default function PassengerHome() {
     }
   }, []);
 
-  // دالة للبحث عن مشوار جاري أو معلق بنفس رقم الهاتف
+  // دالة جلب آخر مشوار للراكب بغض النظر عن حالته
   const checkExistingRide = async (phone: string) => {
     const { data } = await supabase
       .from("rides")
       .select("*")
       .eq("phone_number", phone)
-      .in("status", ["pending", "accepted"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (data) {
-      setActiveRide(data);
+      // إذا كان المشوار غير منتهي بعد أو تم إنهاؤه حديثاً في نفس الجلسة
+      const isSessionCompleted = localStorage.getItem(`completed_ride_${data.id}`);
+      if (data.status !== "completed" || isSessionCompleted) {
+        setActiveRide(data);
+      }
     }
   };
 
-  // 2. الاستماع الفوري المباشر لتغييرات المشوار (قبول/إنهاء)
+  // 2. الاستماع الفوري المباشر لتغييرات المشوار (قبول / إنهاء)
   useEffect(() => {
     if (!activeRide?.id) return;
 
@@ -59,6 +62,9 @@ export default function PassengerHome() {
         },
         (payload) => {
           const updatedRide = payload.new;
+          if (updatedRide.status === "completed") {
+            localStorage.setItem(`completed_ride_${updatedRide.id}`, "true");
+          }
           setActiveRide(updatedRide);
         }
       )
@@ -112,6 +118,13 @@ export default function PassengerHome() {
     }
   };
 
+  const handleNewRideRequest = () => {
+    if (activeRide?.id) {
+      localStorage.removeItem(`completed_ride_${activeRide.id}`);
+    }
+    setActiveRide(null);
+  };
+
   return (
     <div className="min-h-screen bg-[#161b22] text-slate-100 p-4 flex flex-col justify-between w-full min-w-full">
       <div className="w-full max-w-xl mx-auto flex-1 flex flex-col justify-between space-y-5">
@@ -128,7 +141,7 @@ export default function PassengerHome() {
             onClick={() => { window.location.href = "/driver"; }}
             className="bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 text-amber-400 font-bold text-sm px-4 py-2.5 rounded-xl border border-amber-500/30 transition flex items-center gap-2 shadow-lg"
           >
-            <span>🚖</span> لوحة السائق
+            <span>𚥟</span> لوحة السائق
           </button>
         </header>
 
@@ -261,7 +274,7 @@ export default function PassengerHome() {
                 )}
               </div>
             ) : (
-              /* الشاشة الاحتفالية عند وصول الهدف وإكمال المشوار */
+              /* شاشة الوصول والاحتفال عند اكتمال المشوار */
               <div className="text-center space-y-3 py-2">
                 <div className="text-5xl animate-bounce">🏁 🏁</div>
                 <h3 className="text-xl font-extrabold text-amber-400">الحمد لله على السلامة! 🎉</h3>
@@ -281,7 +294,7 @@ export default function PassengerHome() {
             </div>
 
             <button
-              onClick={() => setActiveRide(null)}
+              onClick={handleNewRideRequest}
               className={`w-full py-3.5 font-extrabold text-xs rounded-xl transition shadow-lg ${
                 activeRide.status === "completed"
                   ? "bg-amber-500 hover:bg-amber-400 text-slate-950"
