@@ -14,21 +14,41 @@ export default function PassengerHome() {
   const [loading, setLoading] = useState(false);
   const [activeRide, setActiveRide] = useState<any>(null);
 
-  // 1. استرجاع البيانات والتحقق من آخر مشوار تم إنشاؤه
+  // 1. استرجاع البيانات والتحقق من المشوار النشط برقم ID المشوار
   useEffect(() => {
     if (typeof window !== "undefined") {
       const savedName = localStorage.getItem("passenger_name");
       const savedPhone = localStorage.getItem("passenger_phone");
+      const savedRideId = localStorage.getItem("active_ride_id");
+
       if (savedName) setPassengerName(savedName);
-      if (savedPhone) {
-        setPhoneNumber(savedPhone);
-        checkExistingRide(savedPhone);
+      if (savedPhone) setPhoneNumber(savedPhone);
+
+      if (savedRideId) {
+        fetchRideById(savedRideId);
+      } else if (savedPhone) {
+        checkExistingRideByPhone(savedPhone);
       }
     }
   }, []);
 
-  // دالة جلب آخر مشوار للراكب بغض النظر عن حالته
-  const checkExistingRide = async (phone: string) => {
+  // جلب المشوار مباشرة برقم الـ ID المخزن
+  const fetchRideById = async (rideId: string) => {
+    const { data } = await supabase
+      .from("rides")
+      .select("*")
+      .eq("id", rideId)
+      .maybeSingle();
+
+    if (data) {
+      setActiveRide(data);
+    } else {
+      localStorage.removeItem("active_ride_id");
+    }
+  };
+
+  // جلب آخر مشوار برقم الهاتف في حال عدم وجود ID مخزن
+  const checkExistingRideByPhone = async (phone: string) => {
     const { data } = await supabase
       .from("rides")
       .select("*")
@@ -37,12 +57,9 @@ export default function PassengerHome() {
       .limit(1)
       .maybeSingle();
 
-    if (data) {
-      // إذا كان المشوار غير منتهي بعد أو تم إنهاؤه حديثاً في نفس الجلسة
-      const isSessionCompleted = localStorage.getItem(`completed_ride_${data.id}`);
-      if (data.status !== "completed" || isSessionCompleted) {
-        setActiveRide(data);
-      }
+    if (data && data.status !== "completed") {
+      setActiveRide(data);
+      localStorage.setItem("active_ride_id", data.id);
     }
   };
 
@@ -62,9 +79,6 @@ export default function PassengerHome() {
         },
         (payload) => {
           const updatedRide = payload.new;
-          if (updatedRide.status === "completed") {
-            localStorage.setItem(`completed_ride_${updatedRide.id}`, "true");
-          }
           setActiveRide(updatedRide);
         }
       )
@@ -115,13 +129,13 @@ export default function PassengerHome() {
       alert("حدث خطأ أثناء إرسال الطلب: " + error.message);
     } else if (data) {
       setActiveRide(data);
+      localStorage.setItem("active_ride_id", data.id);
     }
   };
 
-  const handleNewRideRequest = () => {
-    if (activeRide?.id) {
-      localStorage.removeItem(`completed_ride_${activeRide.id}`);
-    }
+  // إغلاق الشاشة الاحتفالية وبدء طلب جديد فقط عند الضغط المباشر على الزر
+  const handleStartNewRide = () => {
+    localStorage.removeItem("active_ride_id");
     setActiveRide(null);
   };
 
@@ -141,7 +155,7 @@ export default function PassengerHome() {
             onClick={() => { window.location.href = "/driver"; }}
             className="bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 text-amber-400 font-bold text-sm px-4 py-2.5 rounded-xl border border-amber-500/30 transition flex items-center gap-2 shadow-lg"
           >
-            <span>𚥟</span> لوحة السائق
+            <span>🚖</span> لوحة السائق
           </button>
         </header>
 
@@ -274,7 +288,7 @@ export default function PassengerHome() {
                 )}
               </div>
             ) : (
-              /* شاشة الوصول والاحتفال عند اكتمال المشوار */
+              /* الشاشة الاحتفالية الثابتة عند إكمال المشوار */
               <div className="text-center space-y-3 py-2">
                 <div className="text-5xl animate-bounce">🏁 🏁</div>
                 <h3 className="text-xl font-extrabold text-amber-400">الحمد لله على السلامة! 🎉</h3>
@@ -294,7 +308,7 @@ export default function PassengerHome() {
             </div>
 
             <button
-              onClick={handleNewRideRequest}
+              onClick={handleStartNewRide}
               className={`w-full py-3.5 font-extrabold text-xs rounded-xl transition shadow-lg ${
                 activeRide.status === "completed"
                   ? "bg-amber-500 hover:bg-amber-400 text-slate-950"
