@@ -133,7 +133,7 @@ export default function PassengerHome() {
     }
   };
 
-  // إغلاق الشاشة الاحتفالية وبدء طلب جديد فقط عند الضغط المباشر على الزر
+  // إغلاق الشاشة الاحتفالية وبدء طلب جديد
   const handleStartNewRide = () => {
     localStorage.removeItem("active_ride_id");
     setActiveRide(null);
@@ -188,8 +188,8 @@ export default function PassengerHome() {
                   className="w-full bg-[#0d1117] border border-slate-700 rounded-xl px-3 py-3 text-sm text-amber-400 font-bold focus:outline-none focus:border-amber-500"
                 >
                   <option value="ركشة ركاب">🛺 ركشة ركاب</option>
-                  <option value="ركشة بضائع">📦 ركشة بضائع</option>
-                  <option value="موتر توصيل">🏍️ موتر توصيل</option>
+                  <option value="توك توك بضائع">📦 توك توك بضائع</option>
+                  <option value="تكسي">🚕 تكسي</option>
                 </select>
               </div>
             </div>
@@ -288,7 +288,7 @@ export default function PassengerHome() {
                 )}
               </div>
             ) : (
-              /* الشاشة الاحتفالية الثابتة عند إكمال المشوار */
+              /* الشاشة الاحتفالية الثابتة */
               <div className="text-center space-y-3 py-2">
                 <div className="text-5xl animate-bounce">🏁 🏁</div>
                 <h3 className="text-xl font-extrabold text-amber-400">الحمد لله على السلامة! 🎉</h3>
