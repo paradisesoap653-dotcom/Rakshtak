@@ -1,121 +1,182 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import "leaflet/dist/leaflet.css";
 
 interface MapProps {
   center?: [number, number];
   pickupName?: string;
-  onLocationSelect?: (coords: [number, number]) => void;
+  onLocationSelect?: (coords: [number, number], name?: string) => void;
+  interactive?: boolean;
 }
 
-export default function Map({ center = [17.7022, 33.9822], pickupName, onLocationSelect }: MapProps) {
-  const [isMounted, setIsMounted] = useState(false);
-  const [userCoords, setUserCoords] = useState<[number, number]>(center);
-  const [isLocating, setIsLocating] = useState(false);
-  const [gpsError, setGpsError] = useState<string | null>(null);
+/** جلب اسم المنطقة من الإحداثيات (مجاني بدون مفتاح — Nominatim) */
+async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=16&accept-language=ar`,
+      { signal: ctrl.signal }
+    );
+    clearTimeout(t);
+    if (!res.ok) return null;
+    const j = await res.json();
+    const a = j?.address ?? {};
+    return (
+      a.suburb ||
+      a.neighbourhood ||
+      a.quarter ||
+      a.city_district ||
+      a.town ||
+      a.village ||
+      a.city ||
+      (typeof j?.display_name === "string" ? j.display_name.split(",")[0] : null) ||
+      null
+    );
+  } catch {
+    return null;
+  }
+}
 
-  // دالة جلب الموقع الحقيقي عبر الـ GPS
-  const getCurrentLocation = useCallback(() => {
+export default function Map({
+  center = [15.5007, 32.5599],
+  pickupName,
+  onLocationSelect,
+  interactive = false,
+}: MapProps) {
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+  const LRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const cbRef = useRef(onLocationSelect);
+  cbRef.current = onLocationSelect;
+
+  const [locating, setLocating] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [resolvedName, setResolvedName] = useState<string | null>(null);
+
+  const placeMarker = useCallback((lat: number, lng: number, fly = true) => {
+    const L = LRef.current;
+    const map = mapRef.current;
+    if (!L || !map) return;
+    if (!markerRef.current) {
+      const icon = L.divIcon({
+        className: "rk-pin-wrap",
+        html: `<div class="rk-pin"><span></span></div>`,
+        iconSize: [30, 42],
+        iconAnchor: [15, 40],
+      });
+      markerRef.current = L.marker([lat, lng], { icon }).addTo(map);
+    } else {
+      markerRef.current.setLatLng([lat, lng]);
+    }
+    if (fly) map.setView([lat, lng], Math.max(map.getZoom(), 15), { animate: true });
+  }, []);
+
+  const pickAt = useCallback(
+    async (lat: number, lng: number) => {
+      placeMarker(lat, lng);
+      const name = await reverseGeocode(lat, lng);
+      if (name) setResolvedName(name);
+      cbRef.current?.([lat, lng], name ?? undefined);
+    },
+    [placeMarker]
+  );
+
+  const locateNow = useCallback(() => {
     if (!navigator.geolocation) {
-      setGpsError("متصفحك لا يدعم تحديد الموقع الجغرافي");
+      setGpsError("متصفحك ما بيدعم تحديد الموقع");
       return;
     }
-
-    setIsLocating(true);
+    setLocating(true);
     setGpsError(null);
-
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const newCoords: [number, number] = [
-          position.coords.latitude,
-          position.coords.longitude,
-        ];
-        setUserCoords(newCoords);
-        setIsLocating(false);
-
-        if (onLocationSelect) {
-          onLocationSelect(newCoords);
-        }
+      (pos) => {
+        setLocating(false);
+        pickAt(pos.coords.latitude, pos.coords.longitude);
       },
-      (error) => {
-        console.warn("GPS Error:", error.message);
-        setIsLocating(false);
-        if (error.code === error.PERMISSION_DENIED) {
-          setGpsError("تم رفض إذن الوصول للموقع. يمكنك تفعيله من إعدادات المتصفح.");
-        } else {
-          setGpsError("تعذر الحصول على موقعك الدقيق حالياً.");
-        }
+      (err) => {
+        setLocating(false);
+        setGpsError(
+          err.code === err.PERMISSION_DENIED
+            ? "إذن الموقع مرفوض — فعّله من إعدادات المتصفح أو دوس على الخريطة"
+            : "تعذر جلب موقعك دلوقتي — حدد مكانه من الخريطة"
+        );
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
     );
-  }, [onLocationSelect]);
+  }, [pickAt]);
 
   useEffect(() => {
-    setIsMounted(true);
-    // محاولة جلب الموقع التلقائي عند فتح الخريطة
-    getCurrentLocation();
-  }, [getCurrentLocation]);
+    let dead = false;
+    (async () => {
+      const L = (await import("leaflet")).default;
+      if (dead || !boxRef.current || mapRef.current) return;
+      LRef.current = L;
+      const map = L.map(boxRef.current, {
+        center,
+        zoom: 15,
+        zoomControl: true,
+        attributionControl: true,
+      });
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO',
+        subdomains: "abcd",
+        maxZoom: 20,
+      }).addTo(map);
+      mapRef.current = map;
+      map.on("click", (e: any) => {
+        if (!interactive) return;
+        pickAt(e.latlng.lat, e.latlng.lng);
+      });
+      locateNow();
+    })();
+    return () => {
+      dead = true;
+      mapRef.current?.remove?.();
+      mapRef.current = null;
+      markerRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  if (!isMounted) {
-    return (
-      <div className="w-full h-full bg-[#0a0c10] flex items-center justify-center text-xs text-slate-500 rounded-2xl">
-        🗺️ جاري التجهيز...
-      </div>
-    );
-  }
-
-  const lat = userCoords[0];
-  const lng = userCoords[1];
-
-  // رابط الخريطة الديناميكي المستند على إحداثيات الـ GPS الحقيقية
-  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.005}%2C${lat - 0.005}%2C${lng + 0.005}%2C${lat + 0.005}&layer=mapnik&marker=${lat}%2C${lng}`;
+  const label = pickupName || resolvedName || "موقعي الحالي";
 
   return (
-    <div className="relative w-full h-full rounded-2xl overflow-hidden border border-slate-800 bg-[#0a0c10]">
-      {/* الخريطة الحقيقية */}
-      <iframe
-        title="Map"
-        width="100%"
-        height="100%"
-        frameBorder="0"
-        scrolling="no"
-        marginHeight={0}
-        marginWidth={0}
-        src={mapUrl}
-        className="w-full h-full opacity-85 filter contrast-125 brightness-90 transition-all duration-500"
-      ></iframe>
+    <div className="relative w-full h-full rounded-2xl overflow-hidden border border-slate-800 bg-[#0a0d13]">
+      <div ref={boxRef} className="absolute inset-0 z-0" />
 
-      {/* زر تحديث/تحديد موقعي الآن عبر GPS */}
+      {interactive && (
+        <div className="absolute top-2 right-2 left-2 z-[500] pointer-events-none flex justify-center">
+          <span className="bg-[#12161f]/90 backdrop-blur-md text-slate-200 text-[11px] px-3 py-1.5 rounded-full border border-slate-700/70 shadow-lg">
+            📍 دوس على الخريطة لتحديد مكانك بالضبط
+          </span>
+        </div>
+      )}
+
       <button
         type="button"
-        onClick={getCurrentLocation}
-        disabled={isLocating}
-        className="absolute top-2 left-2 bg-[#12161f]/90 hover:bg-slate-800 text-white p-2 rounded-xl border border-slate-700/80 shadow-xl backdrop-blur-md flex items-center gap-1.5 text-[10px] active:scale-95 transition-all z-10"
+        onClick={locateNow}
+        disabled={locating}
+        className="absolute top-2 left-2 z-[500] bg-[#12161f]/90 hover:bg-slate-800 text-white px-2.5 py-2 rounded-xl border border-slate-700/80 shadow-xl backdrop-blur-md flex items-center gap-1.5 text-[11px] active:scale-95 transition-all"
       >
-        <span className={isLocating ? "animate-spin" : ""}>📍</span>
-        <span>{isLocating ? "جاري التحديد..." : "موقعي الحالي"}</span>
+        <span className={locating ? "animate-spin" : ""}>📍</span>
+        <span>{locating ? "جاري التحديد..." : "موقعي الحالي"}</span>
       </button>
 
-      {/* التنبيه في حالة وجود مشكلة بالصلاحيات */}
       {gpsError && (
-        <div className="absolute top-2 right-2 left-12 bg-red-900/80 text-red-200 text-[10px] p-2 rounded-xl border border-red-700/50 backdrop-blur-md z-10">
+        <div className="absolute bottom-14 right-2 left-2 z-[500] bg-red-900/80 text-red-100 text-[11px] p-2 rounded-xl border border-red-700/50 backdrop-blur-md">
           ⚠️ {gpsError}
         </div>
       )}
 
-      {/* شريط معلومات الموقع الأسفل */}
-      <div className="absolute bottom-2 right-2 left-2 bg-[#12161f]/90 backdrop-blur-md border border-slate-800 p-2 rounded-xl flex items-center justify-between text-[11px] text-white shadow-lg pointer-events-none z-10">
-        <span className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-          <strong className="text-amber-400">{pickupName || "موقعك عبر الـ GPS"}</strong>
+      <div className="absolute bottom-2 right-2 left-2 z-[500] bg-[#12161f]/90 backdrop-blur-md border border-slate-800 p-2 rounded-xl flex items-center justify-between text-[12px] text-white shadow-lg pointer-events-none">
+        <span className="flex items-center gap-1.5 min-w-0">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0"></span>
+          <strong className="text-amber-400 truncate">{label}</strong>
         </span>
-        <span className="text-[9px] text-slate-400 font-mono" dir="ltr">
-          {lat.toFixed(4)}, {lng.toFixed(4)}
-        </span>
+        <span className="text-[10px] text-slate-500 shrink-0">🛺 ركشتك</span>
       </div>
     </div>
   );
