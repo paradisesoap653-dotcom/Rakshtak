@@ -120,11 +120,25 @@ export default function Map({
         zoomControl: true,
         attributionControl: true,
       });
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO',
-        subdomains: "abcd",
-        maxZoom: 20,
-      }).addTo(map);
+      // بلاطات داكنة مجانية بدون مفتاح (Esri Dark Gray Canvas)
+      const dark = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+        { attribution: "&copy; Esri &copy; OpenStreetMap contributors", maxZoom: 19 }
+      );
+      const darkLabels = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+        { maxZoom: 19, opacity: 0.9 }
+      );
+      dark.addTo(map);
+      darkLabels.addTo(map);
+      // احتياطي: لو بلاطات Esri فشلت نرجع لأوسم مع فلتر داكن
+      dark.on("tileerror", () => {
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "&copy; OpenStreetMap contributors",
+          maxZoom: 19,
+        }).addTo(map);
+        map.getContainer().classList.add("rk-map-light");
+      });
       mapRef.current = map;
       map.on("click", (e: any) => {
         if (!interactive) return;
