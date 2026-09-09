@@ -1,3 +1,63 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ===== خريطة Leaflet بثيم ركشتك الداكن ===== */
+.leaflet-container {
+  background: #0a0d13;
+  font-family: inherit;
+  direction: ltr;
+}
+.leaflet-bar a {
+  background: #12161f !important;
+  color: #f5a70a !important;
+  border-color: #2a3344 !important;
+}
+.leaflet-bar a:hover {
+  background: #1b2130 !important;
+}
+.leaflet-control-attribution {
+  background: rgba(10, 13, 19, 0.75) !important;
+  color: #8b98ab !important;
+  font-size: 9px !important;
+  padding: 1px 5px !important;
+  direction: rtl;
+}
+.leaflet-control-attribution a {
+  color: #8b98ab !important;
+}
+
+/* دبوس الموقع */
+.rk-pin-wrap {
+  background: none;
+  border: none;
+}
+.rk-pin {
+  width: 30px;
+  height: 42px;
+  background: #3fae5a;
+  border: 2.5px solid #ffffff;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rk-pin span {
+  width: 10px;
+  height: 10px;
+  background: #ffffff;
+  border-radius: 50%;
+  transform: rotate(45deg);
+}
+.rk-pin::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  width: 26px;
+  height: 8px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.35), transparent 70%);
+}
