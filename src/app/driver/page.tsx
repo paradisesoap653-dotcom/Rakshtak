@@ -104,9 +104,12 @@ export default function DriverDashboard() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (!error && data) {
-        const pending = data.filter((r) => r.status === "pending");
-        const accepted = data.find((r) => r.status === "accepted");
+      // استبعاد المشواير الملغاة من القائمة
+      const visible = (data || []).filter((r: any) => r.status !== "cancelled");
+
+      if (!error && visible) {
+        const pending = visible.filter((r: any) => r.status === "pending");
+        const accepted = visible.find((r: any) => r.status === "accepted");
         setAvailableRides(pending);
         if (accepted) setCurrentRide(accepted);
       }
@@ -126,6 +129,20 @@ export default function DriverDashboard() {
               setAvailableRides((prev) => [newRide, ...prev]);
             }
           } else if (payload.eventType === "UPDATE") {
+            const upd: any = payload.new;
+            if (upd.status === "cancelled") {
+              // الطلب اتلغى من الراكب: شيله من القايمة، ولو كان مشوارك الحالي بلّغ
+              setAvailableRides((prev) => prev.filter((r) => r.id !== upd.id));
+              setCurrentRide((cur) => {
+                if (cur && cur.id === upd.id) {
+                  alert("تم إلغاء المشوار ده من الراكب");
+                  setActiveTab("available");
+                  return null;
+                }
+                return cur;
+              });
+              return;
+            }
             const updated = payload.new as Ride;
             if (updated.status === "pending") {
               setAvailableRides((prev) =>
