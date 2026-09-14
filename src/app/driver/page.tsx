@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Map from "@/components/Map";
 import { supabase } from "@/lib/supabase";
 import { normalizeSudanesePhone, displayPhone } from "@/lib/format";
+import { subscribeToPush } from "@/lib/push";
 
 interface Ride {
   id: string;
@@ -58,12 +59,19 @@ export default function DriverDashboard() {
     }
   }, []);
 
-  // 1. طلب إذن الإشعارات بأمان
+  // 1. طلب إذن الإشعارات + الاشتراك في الإشعارات الحقيقية (Push) — تظهر حتى لو التطبيق مقفول
   useEffect(() => {
-    if (isDriverLoggedIn && typeof window !== "undefined" && "Notification" in window) {
-      Notification.requestPermission().catch(() => {});
+    if (isDriverLoggedIn && driverPhone) {
+      subscribeToPush(driverPhone, "driver")
+        .then((result) => {
+          // تشخيص مؤقت: يوضح بالظبط سبب فشل الاشتراك بدون أي أدوات مطور
+          alert("نتيجة الاشتراك في الإشعارات: " + result);
+        })
+        .catch((err) => {
+          alert("خطأ غير متوقع أثناء الاشتراك: " + String(err));
+        });
     }
-  }, [isDriverLoggedIn]);
+  }, [isDriverLoggedIn, driverPhone]);
 
   // 2. تشغيل التنبيه الصوتي والإشعار عند وصول طلب جديد
   useEffect(() => {
@@ -76,7 +84,7 @@ export default function DriverDashboard() {
           const latestRide = availableRides[0];
           new Notification("طلب مشوار جديد! 🛺", {
             body: `من: ${latestRide.pickup_location || "الموقع"} - إلى: ${latestRide.destination || "الوجهة"}`,
-            icon: "/icon.png",
+            icon: "https://oskpxioxasyyfyhpbqkv.supabase.co/storage/v1/object/public/Picture/icon.png",
           });
         }
       } catch (err) {
@@ -684,4 +692,4 @@ export default function DriverDashboard() {
       </div>
     </div>
   );
-}
+                    }
